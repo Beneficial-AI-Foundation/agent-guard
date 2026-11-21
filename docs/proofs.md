@@ -1,0 +1,69 @@
+# What is proved
+
+Every verdict AgentGuard gives (allow, ask or deny) is computed by Lean code whose properties are machine-checked. This page lists those properties, how the proof is organised, and how to check it yourself.
+
+## The theorems
+
+All of them hold for **every** rule file, **every** sequence of tool calls, **every** starting session, and **every** person answering the `ask` prompts, even one who approves everything. So they hold however the agent is tricked into choosing its calls.
+
+| Theorem | In plain words |
+|---|---|
+| `impl_eq_spec` | The glob matcher that runs gives exactly the spec's answer. Everything else runs the spec's own definitions. |
+| `executed_only_if_allowed` | A call runs only if it was allowed, or asked and approved. |
+| `unmatched_denied` | A call that matches no rule never runs. |
+| `deny_rule_always_denies` | If the first matching rule says deny, the call never runs. |
+| `ask_rule_needs_person` | If the first matching rule says ask, the call is never allowed, and runs only if the person approves. |
+| `allow_needs_allow_rule` | Only an allow rule can allow. |
+| `no_exfiltration` | Every call that isn't denied writes only to labels at least as high as everything read before it by calls that ran. After reading the private repo, nothing is written to a public one. |
+| `level_monotone` | The session level never goes down, so rewording data doesn't launder it. |
+| `no_untrusted_steering` | After outsider text has been read, no high-impact call is allowed without a person. |
+| `approval_cannot_leak` | A call shown to a person is already within the leak rules, so approving it can't leak. |
+
+The exact statements are in [`lean/Guard/Spec/Safety.lean`](../lean/Guard/Spec/Safety.lean), and the proofs are in [`lean/Guard/Proofs/`](../lean/Guard/Proofs/).
+
+## How it is organised
+
+```
+lean/Guard/
+├── Spec/      what reviewers read
+│   ├── Glob.lean        what a pattern matches (inference rules)
+│   ├── Rules.lean       tool calls, rules, policies
+│   ├── Semantics.lean   conditions, first match wins, no match = deny
+│   ├── Session.lean     repository labels, classification, the decision, a whole session
+│   └── Safety.lean      the theorem statements
+├── Impl/Glob.lean       the matcher that runs (pattern derivatives, no backtracking)
+├── Proofs/
+│   ├── Glob.lean        Impl.glob agrees with Spec's Glob
+│   └── Safety.lean      proofs of every statement in Spec/Safety.lean
+└── Wire/                JSON in and out, rule-file validation (trusted, not proved)
+```
+
+Two layers keep the proofs from being circular:
+
+1. **Spec**: short definitions of what rules mean. To trust AgentGuard you need to read these, not the proofs.
+2. **Proofs**: (a) the code that runs equals the spec, and (b) the spec has the safety properties.
+
+The only part of the decision with a separate implementation is glob matching. The spec defines it with inference rules (`Matches`), and the matcher that runs simulates the pattern as an automaton using pattern derivatives. `glob_correct` proves the two agree, and that proof provides the `Decidable` instance the rest of the spec uses. So the worker runs `Guard.step` from the spec itself, and nothing else needs an `Impl = Spec` proof.
+
+## What a reviewer should check
+
+The proofs only guarantee what the statements say. A reviewer should read `Spec/` and ask:
+
+- Do the definitions say what the rule language should mean? ([docs/rules.md](rules.md) is the same thing in words.)
+- Are the statements in `Spec/Safety.lean` the properties we want, without hidden assumptions?
+
+Changes under `lean/Guard/Spec/` need a second reviewer (see `.github/CODEOWNERS`).
+
+## Checking it yourself
+
+```bash
+scripts/check_proofs.sh
+```
+
+This builds the Lean code with warnings treated as errors, builds the `#guard` examples in `lean/GuardTest/`, and runs `check-axioms`. That checker loads every declaration in `Guard.*` and fails if any of them depends on `sorry`, `native_decide` or an axiom other than Lean's standard three (`propext`, `Classical.choice`, `Quot.sound`).
+
+`guard-worker --info` lists the theorems that the binary you are running was built with.
+
+## What is not proved
+
+See [threat-model.md](threat-model.md): the Lean kernel and compiler, the JSON layer, the Python gateway, the MCP SDK, GitHub, and whether your rule file and labels describe reality.

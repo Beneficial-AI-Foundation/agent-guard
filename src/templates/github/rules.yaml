@@ -1,0 +1,67 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/juan-baif/agentguard/main/schema/rules.schema.json
+#
+# AgentGuard rules for the GitHub MCP server.
+# The first rule that applies decides; if none applies, the call is denied.
+# Omitted fields take the safe value: effect readwrite, source untrusted, impact high.
+# Full reference: docs/rules.md
+# Tool names checked against github/github-mcp-server v2.2.0 (2026-11-16).
+
+labels: [public, private]          # lowest first
+
+repos:                             # first match wins; names are compared lowercased
+  # List every repository the agent works on. An unlisted repository counts as
+  # private when read and public when written.
+  - { match: "*/demo-public", label: public }
+  - { match: "*/demo-private", label: private }
+
+rules:
+  # Reading code and repository facts (written by maintainers)
+  - { tool: github.get_me, action: allow, effect: read, source: trusted, impact: low }
+  - { tool: github.get_file_contents, action: allow, effect: read, source: trusted, impact: low }
+  - { tool: github.list_branches, action: allow, effect: read, source: trusted, impact: low }
+  - { tool: github.list_commits, action: allow, effect: read, source: trusted, impact: low }
+  - { tool: github.get_commit, action: allow, effect: read, source: trusted, impact: low }
+  - { tool: github.list_tags, action: allow, effect: read, source: trusted, impact: low }
+  - { tool: github.list_releases, action: allow, effect: read, source: trusted, impact: low }
+
+  # Reading what outsiders write: issues, comments, pull requests, search results
+  - { tool: github.issue_read, action: allow, effect: read, source: untrusted, impact: low }
+  - { tool: github.list_issues, action: allow, effect: read, source: untrusted, impact: low }
+  - { tool: github.search_issues, action: allow, effect: read, source: untrusted, impact: low }
+  - { tool: github.pull_request_read, action: allow, effect: read, source: untrusted, impact: low }
+  - { tool: github.list_pull_requests, action: allow, effect: read, source: untrusted, impact: low }
+  - { tool: github.search_code, action: allow, effect: read, source: untrusted, impact: low }
+  - { tool: github.actions_list, action: allow, effect: read, source: untrusted, impact: low }
+  - { tool: github.actions_get, action: allow, effect: read, source: untrusted, impact: low }
+  - { tool: github.get_job_logs, action: allow, effect: read, source: untrusted, impact: low }
+
+  # Branches
+  - { tool: github.create_branch, action: allow, effect: write, source: trusted, impact: low }
+
+  # Pushing: never to main; changes under .github/ (workflows, actions, CODEOWNERS) need a person
+  - { tool: github.push_files, when: { branch: [main, master] }, action: deny, effect: write }
+  - { tool: github.push_files, when: { path: "**.github/**" }, action: ask, effect: write }
+  - { tool: github.push_files, action: allow, effect: write, source: trusted, impact: high }
+  - { tool: github.create_or_update_file, when: { branch: [main, master] }, action: deny, effect: write }
+  - { tool: github.create_or_update_file, when: { path: "**.github/**" }, action: ask, effect: write }
+  - { tool: github.create_or_update_file, action: allow, effect: write, source: trusted, impact: high }
+  - { tool: github.delete_file, when: { branch: [main, master] }, action: deny, effect: write }
+  - { tool: github.delete_file, action: ask, effect: write, source: trusted, impact: high }
+
+  # Pull requests, issues and comments
+  - { tool: github.create_pull_request, action: allow, effect: write, source: trusted, impact: high }
+  - { tool: github.update_pull_request, action: allow, effect: write, source: trusted, impact: high }
+  - { tool: github.add_issue_comment, action: allow, effect: write, source: trusted, impact: low }
+  - { tool: github.issue_write, action: allow, effect: write, source: trusted, impact: high, note: "can also close or edit pull requests" }
+
+  # Reviews: comments and change requests only (an allowlist also catches "approve")
+  - { tool: github.pull_request_review_write, when: { event: [COMMENT, REQUEST_CHANGES] }, action: allow, effect: write, source: trusted, impact: low }
+  - { tool: github.pull_request_review_write, action: deny, effect: write, note: "agents don't approve" }
+
+  # Things a person does
+  - { tool: github.merge_pull_request, action: deny, effect: write }
+  - { tool: github.actions_run_trigger, action: ask, effect: write, source: trusted, impact: high, note: "run, rerun or cancel workflows" }
+  - { tool: github.create_repository, action: deny }
+  - { tool: github.fork_repository, action: deny }
+
+  # Anything else is denied (no rule applies).

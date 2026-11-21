@@ -1,0 +1,60 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/juan-baif/agentguard/schema/rules.schema.json",
+  "title": "AgentGuard rules",
+  "description": "What an agent may do through AgentGuard. The meaning is defined in lean/Guard/Spec/ and explained in docs/rules.md. Lean validates every rule file; this schema is for editors.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["labels", "rules"],
+  "properties": {
+    "version": { "type": "integer", "const": 1 },
+    "labels": {
+      "description": "Confidentiality levels, lowest first.",
+      "type": "array", "minItems": 1, "uniqueItems": true,
+      "items": { "type": "string", "minLength": 1 }
+    },
+    "repos": {
+      "description": "First match wins. Repository names are compared lowercased. Unlisted repositories count as the highest label when read and the lowest when written.",
+      "type": "array",
+      "items": {
+        "type": "object", "additionalProperties": false, "required": ["match", "label"],
+        "properties": {
+          "match": { "$ref": "#/$defs/pattern", "description": "owner/repo pattern, e.g. */demo-private" },
+          "label": { "type": "string", "minLength": 1 },
+          "note": { "type": "string" }
+        }
+      }
+    },
+    "rules": {
+      "description": "First match wins; no match means deny.",
+      "type": "array",
+      "items": {
+        "type": "object", "additionalProperties": false, "required": ["tool", "action"],
+        "properties": {
+          "tool": { "$ref": "#/$defs/pattern", "description": "server.tool pattern, e.g. github.push_files or github.get_*" },
+          "when": {
+            "description": "All must hold. deny/ask: argument missing or any value matches. allow: argument present and every value matches.",
+            "type": "object",
+            "additionalProperties": {
+              "oneOf": [
+                { "$ref": "#/$defs/pattern" },
+                { "type": "array", "minItems": 1, "items": { "$ref": "#/$defs/pattern" } }
+              ]
+            }
+          },
+          "action": { "enum": ["allow", "ask", "deny"] },
+          "effect": { "enum": ["read", "write", "readwrite"], "default": "readwrite" },
+          "source": { "enum": ["trusted", "untrusted"], "default": "untrusted" },
+          "impact": { "enum": ["low", "high"], "default": "high" },
+          "note": { "type": "string" }
+        }
+      }
+    }
+  },
+  "$defs": {
+    "pattern": {
+      "type": "string", "minLength": 1,
+      "description": "** any characters incl. /, * any characters except /, ? one character except /; everything else literal."
+    }
+  }
+}

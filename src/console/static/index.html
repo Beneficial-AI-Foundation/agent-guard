@@ -1,0 +1,51 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>AgentGuard console</title>
+  <link rel="stylesheet" href="/static/app.css">
+</head>
+<body>
+  <header>
+    <div class="brand"><span class="logo" aria-hidden="true">◆</span> AgentGuard</div>
+    <div id="status" class="status">Connecting…</div>
+  </header>
+  <main>
+    <section id="approvals-section" hidden>
+      <h2>Waiting for you</h2>
+      <div id="approvals"></div>
+    </section>
+
+    <section>
+      <h2>Live feed</h2>
+      <div class="scroll"><table class="feed">
+        <thead><tr><th>Time</th><th>Tool</th><th>Verdict</th><th>Why</th><th>Outcome</th></tr></thead>
+        <tbody id="feed"><tr class="empty"><td colspan="5">No tool calls yet.</td></tr></tbody>
+      </table></div>
+    </section>
+
+    <div class="grid">
+      <section>
+        <h2>Sessions</h2>
+        <div id="sessions"><p class="muted">No sessions yet.</p></div>
+      </section>
+      <section>
+        <h2>Proofs</h2>
+        <div id="proofs"></div>
+      </section>
+    </div>
+
+    <section>
+      <h2>Active rules</h2>
+      <p class="muted" id="rules-meta"></p>
+      <div class="scroll"><table class="rules"><thead><tr><th>#</th><th>Tool</th><th>When</th><th>Action</th><th>Effect</th><th>Source</th><th>Impact</th></tr></thead>
+        <tbody id="rules"></tbody></table></div>
+    </section>
+  </main>
+  <p id="token-missing" class="banner" hidden>
+    Open the console with the link AgentGuard printed when it started (it ends in <code>#token=…</code>).
+  </p>
+  <script src="/static/app.js"></script>
+</body>
+</html>

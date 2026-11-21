@@ -1,0 +1,28 @@
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+build/
+dist/
+*.egg-info/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+htmlcov/
+
+# Lean
+lean/.lake/
+
+# Built worker binary (copied in by the wheel build)
+src/bin/guard-worker
+
+# Secrets and local state
+.env
+*.pem
+audit.jsonl
+
+# Editors / OS
+.vscode/
+.idea/
+.DS_Store

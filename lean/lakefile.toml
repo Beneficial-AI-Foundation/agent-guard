@@ -1,0 +1,28 @@
+name = "guard"
+version = "0.0.1"
+defaultTargets = ["Guard", "guard-worker", "check-axioms"]
+
+# No Mathlib: every lemma the decision needs is written and proved here.
+
+[leanOptions]
+autoImplicit = false
+relaxedAutoImplicit = false
+
+[[lean_lib]]
+name = "Guard"
+
+# Examples checked at build time with #guard (not part of the trusted library).
+[[lean_lib]]
+name = "GuardTest"
+globs = ["GuardTest.+"]
+
+# The decision worker the Python gateway talks to (JSON lines in, verdicts out).
+[[lean_exe]]
+name = "guard-worker"
+root = "Main"
+
+# Fails if any declaration in Guard.* depends on sorry or a non-standard axiom.
+[[lean_exe]]
+name = "check-axioms"
+root = "CheckAxioms"
+supportInterpreter = true

@@ -1,0 +1,17 @@
+{
+  // The GitHub MCP server, written exactly as in VS Code's mcp.json.
+  // AgentGuard connects to it on the agent's behalf; the agent connects to AgentGuard.
+  "servers": {
+    "github": {
+      // GitHub's remote server. Sign in with `agentguard login` (no token in this file).
+      "type": "http",
+      "url": "https://api.githubcopilot.com/mcp/"
+    }
+    // Or run GitHub's server locally with a fine-grained token from .env:
+    // "github": {
+    //   "command": "docker",
+    //   "args": ["run", "-i", "--rm", "-e", "GITHUB_PERSONAL_ACCESS_TOKEN", "ghcr.io/github/github-mcp-server"],
+    //   "env": { "GITHUB_PERSONAL_ACCESS_TOKEN": "${env:GITHUB_PERSONAL_ACCESS_TOKEN}" }
+    // }
+  }
+}
