@@ -42,7 +42,7 @@ def load_dotenv(path: Path) -> dict[str, str]:
 
 def substitute(value: str, env: Mapping[str, str], builtins: Mapping[str, str]) -> str:
     """Replaces `${VAR}`, `${env:VAR}` and `${input:id}` from `env`, and VS Code
-    variables like `${workspaceFolder}` from `builtins`. A missing variable is an error."""
+    variables like `${workspaceFolder}` from `builtins`. A missing or empty variable is an error."""
 
     def repl(m: re.Match[str]) -> str:
         ref = m.group(1)
@@ -52,7 +52,7 @@ def substitute(value: str, env: Mapping[str, str], builtins: Mapping[str, str]) 
         if not name:
             kind, name = "env", ref
         if kind == "env":
-            if name in env:
+            if env.get(name):
                 return env[name]
             raise ProfileError(f"${{{ref}}}: {name} is not set (add it to the profile's .env)")
         if kind == "input":

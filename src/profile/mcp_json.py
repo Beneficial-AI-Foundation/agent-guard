@@ -23,8 +23,6 @@ class ServerConfig:
     cwd: str | None = None
     url: str | None = None
     headers: dict[str, str] = field(default_factory=dict)
-    #: `oauth`: sign in with `agentguard login` (no Authorization header given).
-    auth: Literal["none", "header", "oauth"] = "none"
 
 
 def strip_jsonc(text: str) -> str:
@@ -116,14 +114,7 @@ def server_from(
         if not isinstance(r.get("url"), str):
             raise ProfileError(f"mcp.json: server {name!r} needs a url")
         headers = {k: str(v) for k, v in r.get("headers", {}).items()}
-        has_auth = any(k.lower() == "authorization" for k in headers)
-        return ServerConfig(
-            name=name,
-            kind="http",
-            url=r["url"],
-            headers=headers,
-            auth="header" if has_auth else "oauth",
-        )
+        return ServerConfig(name=name, kind="http", url=r["url"], headers=headers)
     if kind == "sse":
         raise ProfileError(
             f"mcp.json: server {name!r} uses the old SSE transport; use its HTTP URL"

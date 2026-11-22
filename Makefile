@@ -1,4 +1,4 @@
-.PHONY: check proofs test lint fmt sync clean
+.PHONY: check proofs test live lint fmt sync clean
 
 check: proofs lint test
 
@@ -10,6 +10,10 @@ proofs:
 
 test: sync
 	uv run pytest
+
+# The six stories against real GitHub: make live OWNER=your-test-org
+live: sync
+	AGENTGUARD_LIVE_OWNER=$(OWNER) uv run pytest tests/live -v
 
 lint: sync
 	uv run ruff check .

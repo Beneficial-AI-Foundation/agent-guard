@@ -10,7 +10,6 @@ from pathlib import Path
 
 from .clients import claude_code, cursor, vscode
 from .clients.base import ConfigFile
-from .errors import AgentGuardError
 from .profile.loader import Profile
 
 #: Credentials in the environment that let an agent with a shell skip any gateway.
@@ -82,35 +81,3 @@ def check_shell() -> list[Finding]:
                 )
             )
     return found
-
-
-def check_sign_in(profile: Profile) -> list[Finding]:
-    from .auth import account
-    from .auth.keyring_store import TokenStore
-    from .auth.tokens import StoredToken
-
-    out = []
-    try:
-        store = TokenStore()
-    except AgentGuardError as e:
-        return [Finding("fail", str(e))]
-    for s in profile.servers:
-        if s.kind != "http" or s.auth != "oauth":
-            continue
-        try:
-            data = store.get(account(profile.name, s.name))
-        except Exception as e:
-            out.append(Finding("fail", f"{s.name}: can't read the token store ({e})"))
-            continue
-        if data is None:
-            out.append(Finding("fail", f"{s.name}: not signed in; run `agentguard login`"))
-        elif "access_token" in data:
-            t = StoredToken.from_json(data)
-            who = f" as @{t.login}" if t.login else ""
-            if t.expired() and not t.refresh_token:
-                out.append(Finding("fail", f"{s.name}: sign-in expired; run `agentguard login`"))
-            else:
-                out.append(Finding("ok", f"{s.name}: signed in{who} ({store.backend} store)"))
-        else:
-            out.append(Finding("ok", f"{s.name}: signed in ({store.backend} store)"))
-    return out

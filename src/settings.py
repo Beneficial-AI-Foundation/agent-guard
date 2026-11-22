@@ -32,7 +32,7 @@ class Settings:
     gateway_host: str = "127.0.0.1"
     gateway_port: int = 8080
     console_port: int = 7070
-    #: The console only answers loopback Host headers; bind 0.0.0.0 only inside a container.
+    #: The console only answers loopback Host headers.
     console_host: str = "127.0.0.1"
     #: Seconds a person has to answer an `ask` before it counts as rejected.
     approval_timeout: float = 300.0

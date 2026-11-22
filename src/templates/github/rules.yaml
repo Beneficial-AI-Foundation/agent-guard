@@ -1,10 +1,11 @@
-# yaml-language-server: $schema=https://raw.githubusercontent.com/juan-baif/agentguard/main/schema/rules.schema.json
+# yaml-language-server: $schema=https://raw.githubusercontent.com/Beneficial-AI-Foundation/agent-guard/main/schema/rules.schema.json
 #
 # AgentGuard rules for the GitHub MCP server.
 # The first rule that applies decides; if none applies, the call is denied.
 # Omitted fields take the safe value: effect readwrite, source untrusted, impact high.
 # Full reference: docs/rules.md
-# Tool names checked against github/github-mcp-server v2.2.0 (2026-11-16).
+# Tool names checked against GitHub's remote server with its default toolsets (2026-11-22).
+# The Actions toolset isn't on by default, so its tools have no rules and are denied.
 
 labels: [public, private]          # lowest first
 
@@ -31,9 +32,6 @@ rules:
   - { tool: github.pull_request_read, action: allow, effect: read, source: untrusted, impact: low }
   - { tool: github.list_pull_requests, action: allow, effect: read, source: untrusted, impact: low }
   - { tool: github.search_code, action: allow, effect: read, source: untrusted, impact: low }
-  - { tool: github.actions_list, action: allow, effect: read, source: untrusted, impact: low }
-  - { tool: github.actions_get, action: allow, effect: read, source: untrusted, impact: low }
-  - { tool: github.get_job_logs, action: allow, effect: read, source: untrusted, impact: low }
 
   # Branches
   - { tool: github.create_branch, action: allow, effect: write, source: trusted, impact: low }
@@ -60,7 +58,6 @@ rules:
 
   # Things a person does
   - { tool: github.merge_pull_request, action: deny, effect: write }
-  - { tool: github.actions_run_trigger, action: ask, effect: write, source: trusted, impact: high, note: "run, rerun or cancel workflows" }
   - { tool: github.create_repository, action: deny }
   - { tool: github.fork_repository, action: deny }
 

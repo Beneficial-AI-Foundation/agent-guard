@@ -1,7 +1,6 @@
 """The `agentguard` command.
 
-init · login · logout · connect · doctor · try · check · serve · stdio · demo · report
-· verify · version
+init · connect · doctor · try · check · serve · stdio · report · verify · version
 """
 
 from __future__ import annotations
@@ -132,8 +131,6 @@ def _settings(args: argparse.Namespace) -> Settings:
 
 
 async def _run(args: argparse.Namespace, transport: str) -> None:
-    from .auth import auth_factory
-    from .auth.keyring_store import TokenStore
     from .console.app import make_app
     from .profile import loader
     from .proxy.server import Gateway, http_app, serve_stdio
@@ -141,9 +138,8 @@ async def _run(args: argparse.Namespace, transport: str) -> None:
     settings = _settings(args)
     profile = loader.load(profile_dir(args.profile))
     audit = profile.folder / "audit.jsonl"
-    auth = auth_factory(profile.name, TokenStore())
     console_token = secrets.token_urlsafe(16)
-    async with Gateway.open(profile, settings, audit_path=audit, auth=auth) as gw:
+    async with Gateway.open(profile, settings, audit_path=audit) as gw:
         tasks = [asyncio.create_task(gw.watch_rules())]
         console = None
         if not args.no_console:
@@ -187,82 +183,6 @@ def cmd_stdio(args: argparse.Namespace) -> int:
     return 0
 
 
-# login / logout
-
-
-def cmd_login(args: argparse.Namespace) -> int:
-    import httpx2
-
-    from .auth import account, github_client_id, is_github
-    from .auth.device_flow import device_login, github_login_name
-    from .auth.keyring_store import TokenStore
-    from .profile import loader
-
-    profile = loader.load(profile_dir(args.profile))
-    store = TokenStore()
-    servers = (
-        [profile.server(args.server)]
-        if args.server
-        else [s for s in profile.servers if s.kind == "http" and s.auth == "oauth"]
-    )
-    if not servers:
-        say("Nothing to sign in to: every server uses a local command or a token from .env.")
-        return 0
-
-    async def run() -> None:
-        for cfg in servers:
-            acct = account(profile.name, cfg.name)
-            if is_github(cfg):
-                client_id = github_client_id()
-                if not client_id:
-                    raise AgentGuardError(
-                        "AGENTGUARD_GITHUB_CLIENT_ID is not set: register a GitHub App with "
-                        "device flow enabled (see docs/quickstart.md) and set its client ID"
-                    )
-
-                def show(url: str, code: str) -> None:
-                    say(f"Open {url} and enter code  {code}")
-
-                async with httpx2.AsyncClient(timeout=30) as http:
-                    token = await device_login(client_id, scope=args.scope, show=show, http=http)
-                    token.login = await github_login_name(token, http, "https://api.github.com")
-                store.set(acct, token.to_json())
-                who = f"@{token.login}" if token.login else "GitHub"
-                say(
-                    f"✓ Signed in as {who} (scopes: {token.scope or 'app permissions'}); "
-                    f"token stored in the {store.backend} store"
-                )
-            else:
-                from mcp import Client
-                from mcp.client.streamable_http import streamable_http_client
-
-                from .auth.oauth import provider
-
-                assert cfg.url is not None
-                oauth = provider(cfg.url, store, acct, interactive=True, say=say)
-                http = httpx2.AsyncClient(auth=oauth, timeout=60)
-                async with Client(streamable_http_client(cfg.url, http_client=http)) as c:
-                    await c.list_tools()
-                say(f"✓ Signed in to {cfg.name}; token stored in the {store.backend} store")
-
-    asyncio.run(run())
-    return 0
-
-
-def cmd_logout(args: argparse.Namespace) -> int:
-    from .auth import account
-    from .auth.keyring_store import TokenStore
-    from .profile import loader
-
-    profile = loader.load(profile_dir(args.profile))
-    store = TokenStore()
-    for cfg in profile.servers:
-        if not args.server or cfg.name == args.server:
-            store.delete(account(profile.name, cfg.name))
-            say(f"Signed out of {cfg.name}")
-    return 0
-
-
 # verify
 
 
@@ -283,9 +203,9 @@ def cmd_verify(args: argparse.Namespace) -> int:
 
 
 def cmd_init(args: argparse.Namespace) -> int:
-    from .demo import template_dir
-
-    template = template_dir(args.template)
+    template = Path(__file__).parent / "templates" / args.template
+    if not template.is_dir():
+        raise AgentGuardError(f"no template named {args.template!r}")
     dest = Path(args.profile).expanduser() if args.profile else default_profile(args.template)
     if dest.exists() and any(dest.iterdir()) and not args.force:
         raise AgentGuardError(f"{dest} already exists (use --force to overwrite the templates)")
@@ -300,17 +220,13 @@ def cmd_init(args: argparse.Namespace) -> int:
     say("    mcp.json    the servers to guard (paste from VS Code's mcp.json to change them)")
     say("    rules.yaml  what agents may do (docs/rules.md)")
     say("    .env        secrets, never committed")
-    if not args.no_login:
-        from .profile import loader
+    from .profile import loader
 
-        profile = loader.load(dest)
-        if any(s.kind == "http" and s.auth == "oauth" for s in profile.servers):
-            ns = argparse.Namespace(profile=str(dest), server=None, scope="")
-            try:
-                cmd_login(ns)
-            except AgentGuardError as e:
-                say(f"! Sign-in skipped: {e}")
-                say(f"  Run `agentguard login {dest}` when ready.")
+    try:
+        loader.load(dest)
+    except AgentGuardError as e:
+        say(f"Next: fill in {env} ({e})")
+        return 0
     say("Next: agentguard connect vscode   (or claude-code, cursor)")
     return 0
 
@@ -319,10 +235,32 @@ def cmd_init(args: argparse.Namespace) -> int:
 
 
 def parse_call(text: str) -> tuple[str, dict[str, Any]]:
-    """`push_files owner=octo repo=r branch=main files='[{"path": "a"}]'`"""
-    import shlex
+    """`push_files owner=octo repo=r branch=main files=[{"path":"a"}] body="two words"`
 
-    words = shlex.split(text)
+    Quotes inside a value are kept (so JSON values stay intact); a pair of quotes
+    around the whole value is removed.
+    """
+    words: list[str] = []
+    current: list[str] = []
+    quote: str | None = None
+    for ch in text:  # split on spaces outside quotes; quotes stay in the word
+        if quote:
+            current.append(ch)
+            if ch == quote:
+                quote = None
+        elif ch in "'\"":
+            quote = ch
+            current.append(ch)
+        elif ch.isspace():
+            if current:
+                words.append("".join(current))
+                current = []
+        else:
+            current.append(ch)
+    if quote:
+        raise AgentGuardError(f"unclosed {quote} in {text!r}")
+    if current:
+        words.append("".join(current))
     if not words:
         raise AgentGuardError("give a tool name, then key=value arguments")
     args: dict[str, Any] = {}
@@ -330,6 +268,8 @@ def parse_call(text: str) -> tuple[str, dict[str, Any]]:
         key, sep, value = w.partition("=")
         if not sep:
             raise AgentGuardError(f"{w!r}: arguments are key=value")
+        if len(value) >= 2 and value[0] == value[-1] and value[0] in "'\"":
+            value = value[1:-1]
         try:
             args[key] = json.loads(value)
         except ValueError:
@@ -376,13 +316,11 @@ def cmd_try(args: argparse.Namespace) -> int:
     async def listing() -> int:
         from contextlib import AsyncExitStack
 
-        from .auth import auth_factory
-        from .auth.keyring_store import TokenStore
         from .monitor.reference import glob
         from .proxy.upstream import Upstreams
 
         async with AsyncExitStack() as stack:
-            up = Upstreams(profile.servers, auth=auth_factory(profile.name, TokenStore()))
+            up = Upstreams(profile.servers)
             await up.start(stack)
             rules = profile.policy.get("rules", [])
             print(
@@ -403,35 +341,6 @@ def cmd_try(args: argparse.Namespace) -> int:
         return 0
 
     return asyncio.run(decide(args.call) if args.call else listing())
-
-
-# demo
-
-
-def cmd_demo(args: argparse.Namespace) -> int:
-    from .demo import run_all
-
-    results = asyncio.run(run_all(args.template, only=args.story))
-    failed = 0
-    for r in results:
-        mark = "✓" if r.ok else "✗"
-        print(f"\n{mark} {r.name}  {r.title}" + (f"  · {r.theorem}" if r.theorem else ""))
-        print(f"  {r.summary}")
-        for s in r.steps:
-            sm = "✓" if s.ok else "✗"
-            rule = f"rule {s.rule}" if s.rule else ""
-            person = f" → person {s.person}s" if s.person else ""
-            print(
-                f"  {sm} {s.call:28} {str(s.got).upper():6} {rule}{person}"
-                + ("" if s.ok else f"   (expected {s.expect})")
-            )
-            if s.message.startswith("Blocked by AgentGuard"):
-                print(f"      “{s.message}”")
-        for says, ok in r.checks:
-            print(f"  {'✓' if ok else '✗'} {says}")
-        failed += not r.ok
-    print(f"\n{len(results) - failed}/{len(results)} stories behaved as expected.")
-    return 1 if failed else 0
 
 
 # report
@@ -528,7 +437,7 @@ def cmd_connect(args: argparse.Namespace) -> int:
 
 
 def cmd_doctor(args: argparse.Namespace) -> int:
-    from .doctor import Finding, check_clients, check_shell, check_sign_in
+    from .doctor import Finding, check_clients, check_shell
     from .monitor.worker import Worker
     from .profile import loader
 
@@ -556,7 +465,6 @@ def cmd_doctor(args: argparse.Namespace) -> int:
             findings.append(Finding("ok", f"profile {profile.folder}: {n} rules accepted"))
         except AgentGuardError as e:
             findings.append(Finding("fail", f"rules: {e}"))
-        findings += check_sign_in(profile)
         findings += check_clients(profile, Path.cwd())
     findings += check_shell()
     for f in findings:
@@ -590,32 +498,18 @@ def build_parser() -> argparse.ArgumentParser:
             p.add_argument("--host")
             p.add_argument("--port", type=int)
 
-    p = sub.add_parser("login", help="sign in to the profile's remote servers")
-    p.add_argument("profile", nargs="?")
-    p.add_argument("server", nargs="?")
-    p.add_argument("--scope", default="", help="OAuth scopes (OAuth Apps only, e.g. repo)")
-
-    p = sub.add_parser("logout", help="forget stored sign-ins")
-    p.add_argument("profile", nargs="?")
-    p.add_argument("server", nargs="?")
-
     sub.add_parser("verify", help="re-check the Lean proofs from source")
 
-    p = sub.add_parser("init", help="create a profile folder from a template, then sign in")
+    p = sub.add_parser("init", help="create a profile folder from a template")
     p.add_argument("template", nargs="?", default="github")
     p.add_argument("--profile", help="folder to create (default: ~/.agentguard/<template>)")
     p.add_argument("--force", action="store_true")
-    p.add_argument("--no-login", action="store_true")
 
     p = sub.add_parser("try", help="see what the rules decide, without an agent")
     p.add_argument("call", nargs="?", help='e.g. "push_files owner=o repo=r branch=main"')
     p.add_argument("--profile")
     p.add_argument("--level", help="label the session has already read (e.g. private)")
     p.add_argument("--tainted", action="store_true", help="the session read outsider text")
-
-    p = sub.add_parser("demo", help="run the demo stories offline against a mock server")
-    p.add_argument("story", nargs="?", help="only stories whose name starts with this")
-    p.add_argument("--template", default="github")
 
     p = sub.add_parser("report", help="summarise the audit log")
     p.add_argument("--profile")
@@ -638,12 +532,9 @@ COMMANDS = {
     "check": cmd_check,
     "serve": cmd_serve,
     "stdio": cmd_stdio,
-    "login": cmd_login,
-    "logout": cmd_logout,
     "verify": cmd_verify,
     "init": cmd_init,
     "try": cmd_try,
-    "demo": cmd_demo,
     "report": cmd_report,
     "connect": cmd_connect,
     "doctor": cmd_doctor,

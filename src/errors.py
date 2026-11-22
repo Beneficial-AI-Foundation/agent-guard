@@ -22,7 +22,3 @@ class RulesError(AgentGuardError):
 
 class WorkerError(AgentGuardError):
     """The Lean decision worker failed. The gateway treats this as deny."""
-
-
-class AuthError(AgentGuardError):
-    """Signing in to an upstream server failed."""

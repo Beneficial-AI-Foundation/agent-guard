@@ -11,7 +11,7 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
 
-from ..profile.mcp_json import ServerConfig, parse, strip_jsonc
+from ..profile.mcp_json import ServerConfig, strip_jsonc
 
 ENTRY = "agentguard"
 
@@ -86,7 +86,3 @@ class ConfigFile:
         self.path.parent.mkdir(parents=True, exist_ok=True)
         self.path.write_text(json.dumps(self.data, indent=2) + "\n", encoding="utf-8")
         return moved, backup
-
-
-def parse_servers(path: Path) -> dict[str, Any]:
-    return parse(path.read_text(encoding="utf-8")) if path.exists() else {}

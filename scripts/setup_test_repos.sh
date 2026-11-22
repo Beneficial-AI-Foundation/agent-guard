@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Creates the two test repositories for the live tests (phase 4), using the gh CLI.
+# Creates the two test repositories for the live tests, using the gh CLI.
 #   scripts/setup_test_repos.sh OWNER        (an org or user you control; a throwaway org is best)
 # demo-public:  public, README with a typo, a CI workflow, an outsider-style poisoned issue.
 # demo-private: private, config.env with FAKE secrets.
@@ -41,4 +41,4 @@ if make_repo demo-private private; then
   gh issue create -R "$OWNER/demo-private" --title "Rotate keys" --body "Rotate the deploy key." >/dev/null
 fi
 
-echo "Next: install the AgentGuard GitHub App on these two repositories only (docs/quickstart.md)."
+echo "Next: a fine-grained token for these two repositories only (docs/testing.md step 2)."

@@ -29,7 +29,7 @@ from ..profile.loader import Profile
 from ..settings import Settings
 from .guard import Guard
 from .session import SessionStore
-from .upstream import AuthFactory, ClientFactory, Upstreams
+from .upstream import ClientFactory, Upstreams
 
 
 def file_hash(path: Path) -> str:
@@ -76,12 +76,11 @@ class Gateway:
         *,
         audit_path: Path | None = None,
         client_factory: ClientFactory | None = None,
-        auth: AuthFactory | None = None,
     ) -> AsyncIterator[Gateway]:
         async with AsyncExitStack() as stack:
             worker = await stack.enter_async_context(Worker(timeout=settings.worker_timeout))
             await worker.load(profile.policy)
-            upstreams = Upstreams(profile.servers, client_factory, auth)
+            upstreams = Upstreams(profile.servers, client_factory)
             await upstreams.start(stack)
             gw = cls(profile, settings, worker, upstreams, AuditLog(audit_path))
             gw.theorems = list((await worker.info()).get("theorems", []))

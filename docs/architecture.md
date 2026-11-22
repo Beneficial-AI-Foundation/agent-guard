@@ -8,7 +8,7 @@
    │  1. call → JSON line ──────────────▶ guard-worker (lean/, Lean 4)
    │  2.        verdict + next session ◀──  Guard.step: proved decision
    │  3. allow → forward · ask → person · deny → "Blocked by AgentGuard: …"
-   ▼  MCP (stdio or HTTP, signed in via device flow / OAuth)
+   ▼  MCP (HTTP, with the token from the profile's .env)
  GitHub MCP server
 ```
 
@@ -23,13 +23,12 @@
 | Worker client (errors → deny, restart) | `src/monitor/worker.py` | Trusted, tested |
 | Forwarding | `src/proxy/guard.py` | Trusted, ~20 lines of logic |
 | Profiles, YAML → JSON | `src/profile/` | Trusted, mechanical |
-| Sign-in | `src/auth/` | Trusted |
 
 ## A call, step by step
 
 1. The agent calls `push_files`. The gateway finds which upstream server has it.
 2. It takes the agent's session lock (one decision at a time per session) and sends Lean `{"op":"step","session":{"level":0,"tainted":true},"call":{…}}`.
-3. Lean answers `{"verdict":"ask","cause":"untrusted","rule":19,"next":{…}}`.
+3. Lean answers `{"verdict":"ask","cause":"untrusted","rule":16,"next":{…}}`.
 4. `ask`: the console shows an approval card with the outsider text the session read. Approve → forward; reject or no answer in 5 minutes → blocked.
 5. When a call runs, the session becomes Lean's `next`. The audit log gets one line.
 

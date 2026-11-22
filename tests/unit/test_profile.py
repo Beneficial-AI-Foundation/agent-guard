@@ -30,6 +30,8 @@ def test_substitute() -> None:
     assert substitute("${input:github_token}", env, b) == "g"
     with pytest.raises(ProfileError, match="MISSING is not set"):
         substitute("${MISSING}", env, b)
+    with pytest.raises(ProfileError, match="EMPTY is not set"):  # `GITHUB_PAT=` left blank
+        substitute("Bearer ${env:EMPTY}", {"EMPTY": ""}, b)
     with pytest.raises(ProfileError, match="add NOPE"):
         substitute("${input:nope}", env, b)
 
@@ -59,15 +61,15 @@ def test_mcp_json_vscode() -> None:
         if not mcp_json.is_agentguard(n, r)
     ]
     assert [s.name for s in got] == ["github", "local"]
-    assert got[0].kind == "http" and got[0].auth == "header"
+    assert got[0].kind == "http"
     assert got[0].headers["Authorization"] == "Bearer abc"
     assert got[1].kind == "stdio" and got[1].env == {"T": "t"}
 
 
-def test_mcp_json_claude_format_and_oauth() -> None:
+def test_mcp_json_claude_format() -> None:
     servers = mcp_json.parse('{"mcpServers": {"github": {"url": "https://x/mcp"}}}')
     s = mcp_json.server_from("github", servers["github"], {}, Path("/p"))
-    assert s.kind == "http" and s.auth == "oauth"
+    assert s.kind == "http" and s.url == "https://x/mcp" and s.headers == {}
 
 
 def test_mcp_json_errors() -> None:

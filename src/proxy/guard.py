@@ -90,7 +90,7 @@ class Guard:
             # A forwarded call counts as run, so the session absorbs what it read.
             s.state = d.next if d.verdict != "deny" else absorb(before, d)
             if d.untrusted:
-                text = " ".join(c.text for c in result.content if isinstance(c, types.TextContent))
+                text = " ".join(content_text(result))
                 if text.strip():
                     s.outsider_text.append(text[:500])
         self._event(s, call, d, outcome, before, s.state)
@@ -168,6 +168,19 @@ class Guard:
 def absorb(s: SessionState, d: Decision) -> SessionState:
     """The session after a call Lean denied but audit mode forwarded anyway."""
     return SessionState(max(s.level, d.read_level), s.tainted or d.untrusted)
+
+
+def content_text(result: types.CallToolResult) -> list[str]:
+    """The text in a result: text blocks and embedded text resources (file contents)."""
+    out: list[str] = []
+    for c in result.content:
+        if isinstance(c, types.TextContent):
+            out.append(c.text)
+        elif isinstance(c, types.EmbeddedResource) and isinstance(
+            c.resource, types.TextResourceContents
+        ):
+            out.append(c.resource.text)
+    return out
 
 
 def blocked(reason: str) -> types.CallToolResult:

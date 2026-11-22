@@ -15,9 +15,11 @@ classifiers = [
   "Private :: Do Not Upload",
 ]
 dependencies = [
-    "keyring>=25",
-    "mcp>=1.20",
+    "httpx2>=2",
+    "mcp>=2.3",
     "pyyaml>=6",
+    "starlette>=1",
+    "uvicorn>=0.30",
 ]
 
 [project.scripts]
@@ -41,7 +43,6 @@ dev = [
 package-dir = { "agentguard" = "src" }
 packages = [
   "agentguard",
-  "agentguard.auth",
   "agentguard.clients",
   "agentguard.console",
   "agentguard.monitor",
@@ -57,14 +58,12 @@ agentguard = [
   "templates/*/*.json",
   "templates/*/*.yaml",
   "templates/*/.env.example",
-  "templates/*/demo/*.py",
-  "templates/*/demo/stories/*.yaml",
 ]
 
 [tool.pytest.ini_options]
-testpaths = ["tests", "examples"]
+testpaths = ["tests"]
 addopts = "-ra --strict-markers"
-markers = ["live: talks to real GitHub (needs credentials; skipped by default)"]
+markers = ["live: talks to real GitHub (skipped unless AGENTGUARD_LIVE_OWNER is set)"]
 
 [tool.ruff]
 line-length = 100
@@ -76,8 +75,6 @@ ignore = ["S101"]  # assert is fine in tests
 
 [tool.ruff.lint.per-file-ignores]
 # Tests use seeded random data and start subprocesses on purpose.
-"examples/**" = ["S101"]
-"scripts/**" = ["S603", "S607", "S310"]
 "tests/**" = ["S311", "S603", "S108", "S105", "S106"]
 
 [tool.ruff.lint.isort]

@@ -1,6 +1,6 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://github.com/juan-baif/agentguard/schema/rules.schema.json",
+  "$id": "https://github.com/Beneficial-AI-Foundation/agent-guard/schema/rules.schema.json",
   "title": "AgentGuard rules",
   "description": "What an agent may do through AgentGuard. The meaning is defined in lean/Guard/Spec/ and explained in docs/rules.md. Lean validates every rule file; this schema is for editors.",
   "type": "object",

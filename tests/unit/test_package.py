@@ -1,10 +1,11 @@
-"""Phase 0 checks: `src/` is installed as the `agentguard` package."""
+"""Packaging checks: `src/` is installed as the `agentguard` package."""
 
 from __future__ import annotations
 
 import subprocess
 import sys
 from pathlib import Path
+from typing import Any
 
 import pytest
 
@@ -59,3 +60,46 @@ def test_every_subpackage_is_listed_in_pyproject() -> None:
         and "templates" not in d.relative_to(src).parts  # package data, not code
     }
     assert found == listed
+
+
+def test_try_parses_json_and_quoted_values() -> None:
+    tool, args = cli.parse_call(
+        'push_files owner=o branch=fix/x files=[{"path":"README.md"}] body="two words" n=7'
+    )
+    assert tool == "push_files"
+    assert args == {
+        "owner": "o",
+        "branch": "fix/x",
+        "files": [{"path": "README.md"}],
+        "body": "two words",
+        "n": 7,
+    }
+    _, args = cli.parse_call("""t files='[{"path": "a b"}]'""")
+    assert args == {"files": [{"path": "a b"}]}
+
+
+def test_tool_list_survives_older_protocol_versions() -> None:
+    """GitHub's tools declare output schemas like `"type": ["object", "null"]`; agents on
+    MCP 2025-11-25 only accept `"type": "object"`, so the gateway must drop the others."""
+    import mcp_types as types
+    from mcp_types.methods import serialize_server_result
+
+    from agentguard.proxy.upstream import Route, Upstreams
+
+    schemas: list[dict[str, Any] | None] = [
+        {"type": ["object", "null"]},
+        {"oneOf": [{"type": "object"}, {"type": "null"}]},
+        {"type": "object", "properties": {"sha": {"type": "string"}}},
+        None,
+    ]
+    up = Upstreams([])
+    for i, schema in enumerate(schemas):
+        spec = types.Tool(name=f"t{i}", input_schema={"type": "object"}, output_schema=schema)
+        up.routes[f"t{i}"] = Route("github", f"t{i}", spec)
+    tools = up.tools()
+    assert [t.output_schema for t in tools] == [None, None, schemas[2], None]
+    dumped = types.ListToolsResult(tools=tools).model_dump(
+        by_alias=True, mode="json", exclude_none=True
+    )
+    for version in ("2025-11-25", "2026-07-28"):
+        serialize_server_result("tools/list", version, dumped)

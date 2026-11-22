@@ -1,4 +1,4 @@
-"""init, try, connect, doctor, report and demo as a person runs them."""
+"""init, try, connect, doctor and report as a person runs them."""
 
 from __future__ import annotations
 
@@ -33,22 +33,28 @@ def env(tmp_path: Path, worker_binary: Path) -> dict[str, str]:
         **e,
         "AGENTGUARD_HOME": str(tmp_path / "home"),
         "AGENTGUARD_WORKER": str(worker_binary),
-        "AGENTGUARD_TOKEN_STORE": "memory",
         "HOME": str(tmp_path / "userhome"),
     }
 
 
 @pytest.fixture
 def profile(tmp_path: Path, env: dict[str, str]) -> Path:
-    r = run("init", "--no-login", env=env)
+    r = run("init", env=env)
     assert r.returncode == 0, r.stderr
-    return tmp_path / "home" / "github"
+    folder = tmp_path / "home" / "github"
+    dotenv = folder / ".env"
+    dotenv.write_text(dotenv.read_text().replace("GITHUB_PAT=", "GITHUB_PAT=github_pat_test"))
+    return folder
 
 
-def test_init(profile: Path, env: dict[str, str]) -> None:
+def test_init(tmp_path: Path, env: dict[str, str]) -> None:
+    r = run("init", env=env)
+    assert r.returncode == 0, r.stderr
+    assert "GITHUB_PAT is not set" in r.stderr  # the next step is to put a token in .env
+    profile = tmp_path / "home" / "github"
     assert {p.name for p in profile.iterdir()} == {"mcp.json", "rules.yaml", ".env.example", ".env"}
     assert oct((profile / ".env").stat().st_mode & 0o777) == "0o600"
-    again = run("init", "--no-login", env=env)
+    again = run("init", env=env)
     assert again.returncode == 1 and "already exists" in again.stderr
 
 
@@ -62,7 +68,21 @@ def test_try_single_calls(profile: Path, env: dict[str, str]) -> None:
         'push_files owner=o repo=demo-public branch=fix files=[{"path":".github/x"}]',
         env=env,
     )
-    assert r.stdout.startswith("ASK")
+    assert r.stdout.startswith("ASK") and "rule 16" in r.stdout
+    # Only passes if the JSON files list is read: a README-only push to a branch is allowed.
+    r = run(
+        "try",
+        'push_files owner=o repo=demo-public branch=fix files=[{"path":"README.md"}]',
+        env=env,
+    )
+    assert r.stdout.startswith("ALLOW"), r.stdout
+    r = run(
+        "try",
+        'push_files owner=o repo=demo-public branch=fix files=[{"path":"README.md"}]',
+        "--tainted",
+        env=env,
+    )
+    assert r.stdout.startswith("ASK") and "after outsider text" in r.stdout, r.stdout
     r = run(
         "try",
         "add_issue_comment owner=o repo=demo-public issue_number=1",
@@ -85,8 +105,7 @@ def test_connect_and_doctor(tmp_path: Path, profile: Path, env: dict[str, str]) 
         '    "other": {"command": "other-server"},\n  }\n}\n'
     )
     before = run("doctor", cwd=ws, env=env)
-    assert "reaches a guarded server directly" in before.stdout
-    assert "not signed in" in before.stdout and before.returncode == 1
+    assert "reaches a guarded server directly" in before.stdout and before.returncode == 1
 
     r = run("connect", "vscode", "--workspace", str(ws), env=env)
     assert r.returncode == 0, r.stderr
@@ -98,7 +117,7 @@ def test_connect_and_doctor(tmp_path: Path, profile: Path, env: dict[str, str]) 
 
     after = run("doctor", cwd=ws, env=env)
     assert "uses AgentGuard" in after.stdout and "directly" not in after.stdout
-    assert "10 theorems" in after.stdout and "35 rules accepted" in after.stdout
+    assert "10 theorems" in after.stdout and "31 rules accepted" in after.stdout
 
 
 def test_report(tmp_path: Path, env: dict[str, str]) -> None:
@@ -125,7 +144,11 @@ def test_report(tmp_path: Path, env: dict[str, str]) -> None:
     assert "People answered 2 request(s)" in r.stdout
 
 
-def test_demo_command(env: dict[str, str]) -> None:
-    r = run("demo", env=env)
-    assert r.returncode == 0, r.stdout + r.stderr
-    assert "6/6 stories behaved as expected." in r.stdout
+def test_unreachable_server_is_one_line(profile: Path, env: dict[str, str]) -> None:
+    (profile / "mcp.json").write_text(
+        '{"servers": {"github": {"url": "http://127.0.0.1:9/mcp",'
+        ' "headers": {"Authorization": "Bearer x"}}}}'
+    )
+    r = run("try", env=env)
+    assert r.returncode == 1 and "Traceback" not in r.stderr, r.stderr
+    assert "github: can't connect to http://127.0.0.1:9/mcp" in r.stderr

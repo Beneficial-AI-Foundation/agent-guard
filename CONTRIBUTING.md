@@ -4,14 +4,16 @@
 
 1. **Every verdict comes from `lean/`.** Nothing in `src/` decides allow, ask or deny. A missing answer or an error from Lean means deny.
 2. **A change to the rule language starts in `lean/Guard/Spec/`.** `Impl/`, `Proofs/`, `src/monitor/reference.py`, the schema and `docs/rules.md` change in the same PR.
-3. **GitHub appears only in `src/templates/github/`, `examples/github/` and `tests/live/`.**
-4. **A new connection is a new template and example folder**, not new gateway code.
+3. **GitHub appears only in `src/templates/github/`, `tests/live/` and `scripts/setup_test_repos.sh`.**
+4. **A new connection is a new template folder**, not new gateway code.
 
 ## Before you open a PR
 
 ```bash
 make check     # proofs + axiom check + ruff + mypy + pytest
 ```
+
+If the change touches the gateway or the GitHub rules, also run the real-GitHub stories (`make live OWNER=…`, see [docs/testing.md](docs/testing.md)).
 
 CI runs the same checks and blocks the merge if any fail. `lake build --wfail` treats Lean warnings as errors, and `check-axioms` rejects `sorry`, `native_decide` and any axiom other than `propext`, `Classical.choice` and `Quot.sound`.
 
