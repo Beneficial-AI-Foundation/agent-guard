@@ -10,4 +10,4 @@ First version: an MCP gateway for the GitHub MCP server whose allow / ask / deny
 - **GitHub profile.** `mcp.json`, 31 rules and `.env.example`, with tool names checked against GitHub's remote MCP server.
 - **Commands.** `init`, `connect` (VS Code, Claude Code, Cursor), `doctor`, `try`, `check`, `serve`, `stdio`, `report`, `verify`, `version`.
 - **Testing.** `make check` (proofs, axioms, lint, types, tests; no credentials) and `make live OWNER=…`: the six stories against a real test organisation. Checked end to end with a real agent ([docs/testing.md](docs/testing.md)).
-- **Demo page.** `site/index.html`: the stories with and without AgentGuard, simulated in the browser.
+- **Demo page.** `site/index.html`: the stories with and without AgentGuard, run in the browser; published to GitHub Pages on every change to `site/`.

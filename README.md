@@ -37,7 +37,7 @@ Step by step, including the token's permissions and the prompts to give an agent
 | [`src/`](src/) | The gateway, installed as the `agentguard` package. It moves bytes and never decides. |
 | [`src/templates/github/`](src/templates/github/) | The GitHub profile: `mcp.json`, `rules.yaml`, `.env.example` |
 | [`tests/`](tests/) | Unit, integration, property (Lean vs. reference, 10,000 cases), and `live/`: the six stories against real GitHub |
-| [`site/`](site/) | The demo page: the stories with and without AgentGuard, simulated in the browser (open `site/index.html`) |
+| [`site/`](site/) | The demo page: the stories with and without AgentGuard, run in the browser. Published to GitHub Pages by `.github/workflows/pages.yml` |
 | [`docs/`](docs/) | [Rules](docs/rules.md) · [proofs](docs/proofs.md) · [threat model](docs/threat-model.md) · [architecture](docs/architecture.md) · [design](docs/design.md) · [testing](docs/testing.md) |
 
 ## Development
