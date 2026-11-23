@@ -134,9 +134,9 @@ code{font-family:var(--font-mono);font-size:.86em;background:var(--surface-2);bo
 .story[aria-pressed="true"]{border-bottom-color:var(--accent)}
 .story[aria-pressed="true"] b,.story:hover b{color:var(--ink)}
 .blurb{color:var(--muted);font-size:14.5px;margin:-8px 0 18px}
-.ask{display:flex;flex-wrap:wrap;align-items:flex-end;gap:16px;justify-content:space-between;padding:0 0 20px}
-.ask q{display:block;font-size:20px;font-weight:500;letter-spacing:-.015em;margin-top:4px;quotes:"\201C" "\201D"}
-.ask .lbl{display:block;color:var(--muted);font-size:12px;font-family:var(--font-mono)}
+.prompt{display:flex;flex-wrap:wrap;align-items:flex-end;gap:16px;justify-content:space-between;padding:0 0 20px}
+.prompt q{display:block;font-size:20px;font-weight:500;letter-spacing:-.015em;margin-top:4px;quotes:"\201C" "\201D"}
+.prompt .lbl{display:block;color:var(--muted);font-size:12px;font-family:var(--font-mono)}
 .run{background:var(--accent);color:#fff;border:0;border-radius:8px;padding:10px 18px;font-weight:500;font-size:14.5px;display:inline-flex;gap:8px;align-items:center}
 .run:disabled{opacity:.4;cursor:not-allowed}
 .lanes{display:grid;gap:14px}
@@ -259,7 +259,7 @@ footer .wrap{display:flex;justify-content:space-between;gap:16px;flex-wrap:wrap}
     <p>Pick a story and press Run. Both lanes run the same agent at the same time; only the lower one goes through AgentGuard, with its default rules.</p></div>
   <div class="stories" id="stories" role="group" aria-label="Choose a story"></div>
   <p class="blurb" id="blurb"></p>
-  <section class="ask">
+  <section class="prompt">
     <div><span class="lbl" id="who"></span><q id="ask"></q></div>
     <button class="run" id="run"><svg width="12" height="12" viewBox="0 0 14 14" aria-hidden="true"><path d="M3 1.5v11l9-5.5z" fill="currentColor"/></svg><span id="run-t">Run both</span></button>
   </section>
