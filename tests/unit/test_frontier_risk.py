@@ -75,7 +75,7 @@ def test_template_decides_before_later_rules(worker_binary: Path) -> None:
             # Not caught by the template: the catch-all decides.
             for call in (
                 {"server": "hr", "tool": "decide_x", "arguments": {"domain": "scheduling"}},
-                {"server": "github", "tool": "push_files", "arguments": {"path": "README.md"}},
+                {"server": "files", "tool": "push_files", "arguments": {"path": "README.md"}},
                 {"server": "notes", "tool": "read_note", "arguments": {}},
             ):
                 assert (await w.step(SessionState(), call)).verdict == "allow", call

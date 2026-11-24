@@ -30,7 +30,7 @@ def verdicts (cs : List ToolCall) : List Verdict :=
   call "scanner" "vuln_scan_host",
   call "nuclear" "set_rod_position",
   call "weapons" "arm",
-  call "github" "push_files" [("files", files ["README.md", "agentguard/rules.yaml"])]
+  call "files" "push_files" [("files", files ["README.md", "agentguard/rules.yaml"])]
 ] == [.deny, .deny, .deny, .deny, .deny]
 
 /-! Ask rules: sending and automated decisions in the listed domains need a person.
@@ -44,7 +44,7 @@ A decision with no `domain` counts as one of them (the safe direction). -/
 
 /-! Everything the template doesn't catch is left to the rules after it. -/
 #guard verdicts [
-  call "github" "push_files" [("files", files ["README.md"])],
+  call "files" "push_files" [("files", files ["README.md"])],
   call "hr" "decide_candidate" [("domain", .str "scheduling")],
   call "notes" "read_note"
 ] == [.allow, .allow, .allow]
