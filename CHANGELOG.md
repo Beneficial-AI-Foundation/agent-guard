@@ -1,5 +1,9 @@
 # Changelog
 
+## Unreleased
+
+- **Frontier-risk template.** 33 rules from the FLI AI Safety Index (Summer 2026) and AIR-Bench 2024 about what an agent may do (no network scanning, no operating weapons, nuclear or other critical systems, a person for sends and automated decisions about people), as `docs/frontier-risk-rules.yaml`. Lean proves that the template keeps deciding the calls it catches whatever rules follow it (`lean/Guard/Rulesets/FrontierRisk.lean`). `docs/frontier-risk.md` maps all 40 agent-action rules from the Index and its benchmarks to these rules or to existing theorems. No change to the rule language.
+
 ## 0.0.1 (unreleased)
 
 First version: an MCP gateway for the GitHub MCP server whose allow / ask / deny decisions are proved in Lean 4.
