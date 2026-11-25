@@ -82,6 +82,32 @@ def NoUntrustedSteering : Prop :=
       e₁.executed = true → e₁.decision.cls.untrusted = true →
         e₂.decision.cls.highImpact = true → e₂.decision.verdict ≠ .allow)
 
+/-! ## Resources
+
+`NoExfiltration` is about the labels a call reads and writes; `resources` is
+what decides those labels. These three say the slot behaves. -/
+
+/-- **A policy that declares no resources behaves exactly as before.** The
+migration statement: every rule file written today keeps its meaning. -/
+def ResourceDefaultIsRepo : Prop :=
+  ∀ p c, p.resources = [] →
+    knownLabel p c = (repoOf c.args).bind (repoLabel p)
+
+/-- **A flat server has exactly its declared label**, whatever the call's
+arguments are: nothing it reads pushes the session above `l`, and it can be
+written to from any session at or below `l`. This is what stops a second
+connection from poisoning the session on its first read. -/
+def FlatServerLabel : Prop :=
+  ∀ p c l, serverResource p c = some (.flat l) →
+    readLabel p c = l ∧ writeLabel p c = l
+
+/-- **An unnameable resource still counts in the safe direction.** Reading it
+is treated as the highest label and writing to it as the lowest, so a server
+the policy says nothing about can never be used to launder data. -/
+def UnknownResourceIsSafe : Prop :=
+  ∀ p c, knownLabel p c = none →
+    readLabel p c = p.top ∧ writeLabel p c = 0
+
 /-- **A call sent to a person is already within the leak rules**, so approving it
 can't leak data. -/
 def ApprovalCannotLeak : Prop :=

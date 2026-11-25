@@ -151,6 +151,20 @@ theorem allow_needs_allow_rule : AllowNeedsAllowRule := by
   rw [← classify_action]
   exact (step_allow hv).1
 
+/-! ### Resources -/
+
+theorem resource_default_is_repo : ResourceDefaultIsRepo := by
+  intro p c h
+  simp [knownLabel, serverResource, h]
+
+theorem flat_server_label : FlatServerLabel := by
+  intro p c l h
+  simp [readLabel, writeLabel, knownLabel, h]
+
+theorem unknown_resource_is_safe : UnknownResourceIsSafe := by
+  intro p c h
+  simp [readLabel, writeLabel, h]
+
 theorem approval_cannot_leak : ApprovalCannotLeak := by
   intro p a s cs e he hv d hdst
   obtain ⟨hd, -⟩ := run_facts p a cs s e he

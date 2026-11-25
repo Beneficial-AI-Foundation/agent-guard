@@ -93,6 +93,28 @@ structure RepoLabel where
   label : Label
   deriving Repr
 
+/-- **How a server names the thing a call touches.** The label system needs a
+name for the data a call reads or writes. GitHub calls it `owner/repo`; another
+server may name it differently, or not at all.
+
+* `keys names` — join the call's top-level arguments `names`, in order, with
+  `/`. The result is matched against the policy's `repos` patterns, as
+  `owner/repo` is today. If any key is missing the resource is unknown.
+* `flat l` — every call on this server touches data at label `l`. For servers
+  with no per-call resource (a mailbox, a scanner), where treating each call as
+  unknown would push the session to the top label on its first read. -/
+inductive Resource where
+  | keys (names : List String)
+  | flat (label : Label)
+  deriving Repr
+
+/-- `server: "github", from: [owner, repo]`. First match wins. -/
+structure ServerResource where
+  /-- Pattern for the server's name in the profile, e.g. `github` or `mail-*`. -/
+  server : String
+  res : Resource
+  deriving Repr
+
 structure Policy where
   /-- Number of labels; the highest label is `labelCount - 1`. -/
   labelCount : Nat
@@ -100,6 +122,10 @@ structure Policy where
   repos : List RepoLabel
   /-- First match wins; no match means deny. -/
   rules : List Rule
+  /-- How each server names the resource a call touches. First match wins.
+  Empty means every server is read as GitHub is (`owner` and `repo`), which is
+  what every rule file does today. -/
+  resources : List ServerResource := []
   deriving Repr
 
 /-- The highest label. -/

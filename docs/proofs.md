@@ -6,6 +6,8 @@ Every verdict AgentGuard gives (allow, ask or deny) is computed by Lean code who
 
 All of them hold for **every** rule file, **every** sequence of tool calls, **every** starting session, and **every** person answering the `ask` prompts, even one who approves everything. So they hold however the agent is tricked into choosing its calls.
 
+The three `resource*` theorems are **proved, but the slot is not yet reachable from a rule file**: nothing decodes `resources` yet, so every policy takes the default path that `resource_default_is_repo` describes. The schema and `docs/rules.md` land separately.
+
 | Theorem | In plain words |
 |---|---|
 | `impl_eq_spec` | The glob matcher that runs gives exactly the spec's answer. Everything else runs the spec's own definitions. |
@@ -18,6 +20,9 @@ All of them hold for **every** rule file, **every** sequence of tool calls, **ev
 | `level_monotone` | The session level never goes down, so rewording data doesn't launder it. |
 | `no_untrusted_steering` | After outsider text has been read, no high-impact call is allowed without a person. |
 | `approval_cannot_leak` | A call shown to a person is already within the leak rules, so approving it can't leak. |
+| `resource_default_is_repo` | A rule file that declares no `resources` means exactly what it means today (`owner` and `repo`). |
+| `flat_server_label` | A server declared `flat l` reads and writes at label `l`, whatever the call's arguments say. |
+| `unknown_resource_is_safe` | A resource the policy can't name is read as the highest label and written as the lowest, so it can't launder data. |
 
 The exact statements are in [`lean/Guard/Spec/Safety.lean`](../lean/Guard/Spec/Safety.lean), and the proofs are in [`lean/Guard/Proofs/`](../lean/Guard/Proofs/).
 
