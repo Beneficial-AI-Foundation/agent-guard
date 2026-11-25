@@ -148,9 +148,7 @@ class Policy:
                     high_impact=r.get("impact", "high") == "high",
                 )
             )
-        resources = tuple(
-            (e["match"], labels.index(e["label"])) for e in d.get("resources") or []
-        )
+        resources = tuple((e["match"], labels.index(e["label"])) for e in d.get("resources") or [])
         servers = []
         for sv in d.get("servers") or []:
             res = sv.get("resource")
