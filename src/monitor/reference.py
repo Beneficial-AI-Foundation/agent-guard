@@ -97,8 +97,18 @@ def values_at(key: str, v: Any) -> list[str]:
 
 
 @dataclass(frozen=True)
+class Server:
+    name: str
+    #: ("keys", (argument names...)) or ("flat", label) — None if the server says nothing.
+    resource: tuple[str, Any] | None
+    #: capability -> tool-name patterns
+    caps: tuple[tuple[str, tuple[str, ...]], ...]
+
+
+@dataclass(frozen=True)
 class Rule:
     tool: str
+    cap: str | None
     conds: tuple[tuple[str, tuple[str, ...]], ...]
     action: str
     reads: bool
@@ -112,6 +122,7 @@ class Policy:
     label_count: int
     repos: tuple[tuple[str, int], ...]
     rules: tuple[Rule, ...]
+    servers: tuple[Server, ...] = ()
 
     @property
     def top(self) -> int:
@@ -127,7 +138,8 @@ class Policy:
             conds = tuple((k, (v,) if isinstance(v, str) else tuple(v)) for k, v in when.items())
             rules.append(
                 Rule(
-                    tool=r["tool"],
+                    tool=r.get("tool", "**" if r.get("capability") else None),
+                    cap=r.get("capability"),
                     conds=conds,
                     action=r["action"],
                     reads=effect in ("read", "readwrite"),
@@ -137,7 +149,21 @@ class Policy:
                 )
             )
         repos = tuple((e["match"], labels.index(e["label"])) for e in d.get("repos") or [])
-        return cls(len(labels), repos, tuple(rules))
+        servers = []
+        for sv in d.get("servers") or []:
+            res = sv.get("resource")
+            resource: tuple[str, Any] | None = None
+            if res:
+                if "keys" in res:
+                    resource = ("keys", tuple(res["keys"]))
+                else:
+                    resource = ("flat", labels.index(res["label"]))
+            caps = tuple(
+                (k, (v,) if isinstance(v, str) else tuple(v))
+                for k, v in (sv.get("capabilities") or {}).items()
+            )
+            servers.append(Server(name=sv["name"], resource=resource, caps=caps))
+        return cls(len(labels), repos, tuple(rules), tuple(servers))
 
 
 def cond_holds(action: str, key: str, pats: tuple[str, ...], args: dict[str, Any]) -> bool:
@@ -151,15 +177,28 @@ def cond_holds(action: str, key: str, pats: tuple[str, ...], args: dict[str, Any
     return not vals or any(accepts(v) for v in vals)
 
 
-def applies(r: Rule, call: dict[str, Any]) -> bool:
+def server_of(p: Policy, call: dict[str, Any]) -> Server | None:
+    return next((sv for sv in p.servers if glob(sv.name, call["server"])), None)
+
+
+def caps_of(p: Policy, call: dict[str, Any]) -> list[str]:
+    sv = server_of(p, call)
+    if sv is None:
+        return []
+    return [c for c, pats in sv.caps if any(glob(g, call["tool"]) for g in pats)]
+
+
+def applies(p: Policy, r: Rule, call: dict[str, Any]) -> bool:
     name = f"{call['server']}.{call['tool']}"
     args = call.get("arguments") or {}
-    return glob(r.tool, name) and all(cond_holds(r.action, k, p, args) for k, p in r.conds)
+    if r.cap is not None and r.cap not in caps_of(p, call):
+        return False
+    return glob(r.tool, name) and all(cond_holds(r.action, k, q, args) for k, q in r.conds)
 
 
 def first_match(p: Policy, call: dict[str, Any]) -> tuple[int, Rule] | None:
     for i, r in enumerate(p.rules):
-        if applies(r, call):
+        if applies(p, r, call):
             return i, r
     return None
 
@@ -180,8 +219,23 @@ def repo_of(args: dict[str, Any]) -> str | None:
     return None
 
 
+def resource_name(names: tuple[str, ...], args: dict[str, Any]) -> str | None:
+    if not names:
+        return None
+    vals = [_as_str(args.get(k)) for k in names]
+    return None if any(v is None for v in vals) else lower("/".join(v for v in vals if v))
+
+
 def known_label(p: Policy, call: dict[str, Any]) -> int | None:
-    name = repo_of(call.get("arguments") or {})
+    args = call.get("arguments") or {}
+    sv = server_of(p, call)
+    if sv is not None and sv.resource is not None:
+        kind, val = sv.resource
+        if kind == "flat":
+            return int(val)
+        name = resource_name(val, args)
+    else:
+        name = repo_of(args)
     if name is None:
         return None
     for pat, label in p.repos:

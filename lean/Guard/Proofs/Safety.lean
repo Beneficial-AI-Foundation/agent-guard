@@ -20,11 +20,11 @@ variable {p : Policy} {s : Session} {c : ToolCall}
 /-! ## 1. One step -/
 
 theorem classify_action (p : Policy) (c : ToolCall) :
-    (classify p c).action = action p.rules c := by
+    (classify p c).action = action p p.rules c := by
   unfold classify action
   split <;> simp_all
 
-theorem classify_none (h : firstMatch p.rules c = none) : (classify p c).action = .deny := by
+theorem classify_none (h : firstMatch p p.rules c = none) : (classify p c).action = .deny := by
   simp [classify_action, action, h]
 
 /-- Everything the safety proofs need to know about one `step`. -/
@@ -150,6 +150,34 @@ theorem allow_needs_allow_rule : AllowNeedsAllowRule := by
   rw [hd] at hv
   rw [← classify_action]
   exact (step_allow hv).1
+
+/-! ### Capabilities -/
+
+theorem capability_needs_declaration : CapabilityNeedsDeclaration := by
+  intro p r c cp hcap hnot ha
+  exact hnot (by simpa [Rule.CapHolds, hcap] using ha.2.1)
+
+theorem unlisted_server_has_no_caps : UnlistedServerHasNoCaps := by
+  intro p c h
+  simp [capsOf, h]
+
+theorem name_rules_unchanged : NameRulesUnchanged := by
+  intro p r c h
+  simp [Rule.Applies, Rule.CapHolds, h]
+
+/-! ### Resources -/
+
+theorem resource_default_is_repo : ResourceDefaultIsRepo := by
+  intro p c h
+  simp [knownLabel, serverResource, serverOf, h]
+
+theorem flat_server_label : FlatServerLabel := by
+  intro p c l h
+  simp [readLabel, writeLabel, knownLabel, h]
+
+theorem unknown_resource_is_safe : UnknownResourceIsSafe := by
+  intro p c h
+  simp [readLabel, writeLabel, h]
 
 theorem approval_cannot_leak : ApprovalCannotLeak := by
   intro p a s cs e he hv d hdst

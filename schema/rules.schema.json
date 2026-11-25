@@ -5,23 +5,275 @@
   "description": "What an agent may do through AgentGuard. The meaning is defined in lean/Guard/Spec/ and explained in docs/rules.md. Lean validates every rule file; this schema is for editors.",
   "type": "object",
   "additionalProperties": false,
-  "required": ["labels", "rules"],
+  "required": [
+    "labels",
+    "rules"
+  ],
   "properties": {
-    "version": { "type": "integer", "const": 1 },
+    "version": {
+      "type": "integer",
+      "const": 1
+    },
     "labels": {
       "description": "Confidentiality levels, lowest first.",
-      "type": "array", "minItems": 1, "uniqueItems": true,
-      "items": { "type": "string", "minLength": 1 }
+      "type": "array",
+      "minItems": 1,
+      "uniqueItems": true,
+      "items": {
+        "type": "string",
+        "minLength": 1
+      }
     },
     "repos": {
       "description": "First match wins. Repository names are compared lowercased. Unlisted repositories count as the highest label when read and the lowest when written.",
       "type": "array",
       "items": {
-        "type": "object", "additionalProperties": false, "required": ["match", "label"],
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "match",
+          "label"
+        ],
         "properties": {
-          "match": { "$ref": "#/$defs/pattern", "description": "owner/repo pattern, e.g. */demo-private" },
-          "label": { "type": "string", "minLength": 1 },
-          "note": { "type": "string" }
+          "match": {
+            "$ref": "#/$defs/pattern",
+            "description": "owner/repo pattern, e.g. */demo-private"
+          },
+          "label": {
+            "type": "string",
+            "minLength": 1
+          },
+          "note": {
+            "type": "string"
+          }
+        }
+      }
+    },
+    "servers": {
+      "description": "The connections. First match wins. A server not listed names no resource and has no capabilities.",
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "name"
+        ],
+        "properties": {
+          "name": {
+            "$ref": "#/$defs/pattern",
+            "description": "server name pattern, e.g. github"
+          },
+          "resource": {
+            "description": "How this server names the thing a call touches. Give keys or label, not both.",
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+              "keys": {
+                "description": "top-level argument names, joined with /",
+                "type": "array",
+                "minItems": 1,
+                "items": {
+                  "type": "string",
+                  "minLength": 1
+                }
+              },
+              "label": {
+                "description": "every call on this server touches data at this label",
+                "type": "string",
+                "minLength": 1
+              }
+            },
+            "oneOf": [
+              {
+                "required": [
+                  "keys"
+                ]
+              },
+              {
+                "required": [
+                  "label"
+                ]
+              }
+            ]
+          },
+          "capabilities": {
+            "description": "What this server's tools do. Patterns match the tool name, not server.tool.",
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+              "network_scan": {
+                "oneOf": [
+                  {
+                    "$ref": "#/$defs/pattern"
+                  },
+                  {
+                    "type": "array",
+                    "minItems": 1,
+                    "items": {
+                      "$ref": "#/$defs/pattern"
+                    }
+                  }
+                ]
+              },
+              "remote_access": {
+                "oneOf": [
+                  {
+                    "$ref": "#/$defs/pattern"
+                  },
+                  {
+                    "type": "array",
+                    "minItems": 1,
+                    "items": {
+                      "$ref": "#/$defs/pattern"
+                    }
+                  }
+                ]
+              },
+              "packet_forge": {
+                "oneOf": [
+                  {
+                    "$ref": "#/$defs/pattern"
+                  },
+                  {
+                    "type": "array",
+                    "minItems": 1,
+                    "items": {
+                      "$ref": "#/$defs/pattern"
+                    }
+                  }
+                ]
+              },
+              "malware_exec": {
+                "oneOf": [
+                  {
+                    "$ref": "#/$defs/pattern"
+                  },
+                  {
+                    "type": "array",
+                    "minItems": 1,
+                    "items": {
+                      "$ref": "#/$defs/pattern"
+                    }
+                  }
+                ]
+              },
+              "service_disrupt": {
+                "oneOf": [
+                  {
+                    "$ref": "#/$defs/pattern"
+                  },
+                  {
+                    "type": "array",
+                    "minItems": 1,
+                    "items": {
+                      "$ref": "#/$defs/pattern"
+                    }
+                  }
+                ]
+              },
+              "audit_tamper": {
+                "oneOf": [
+                  {
+                    "$ref": "#/$defs/pattern"
+                  },
+                  {
+                    "type": "array",
+                    "minItems": 1,
+                    "items": {
+                      "$ref": "#/$defs/pattern"
+                    }
+                  }
+                ]
+              },
+              "guard_config_write": {
+                "oneOf": [
+                  {
+                    "$ref": "#/$defs/pattern"
+                  },
+                  {
+                    "type": "array",
+                    "minItems": 1,
+                    "items": {
+                      "$ref": "#/$defs/pattern"
+                    }
+                  }
+                ]
+              },
+              "send_message": {
+                "oneOf": [
+                  {
+                    "$ref": "#/$defs/pattern"
+                  },
+                  {
+                    "type": "array",
+                    "minItems": 1,
+                    "items": {
+                      "$ref": "#/$defs/pattern"
+                    }
+                  }
+                ]
+              },
+              "automated_decision": {
+                "oneOf": [
+                  {
+                    "$ref": "#/$defs/pattern"
+                  },
+                  {
+                    "type": "array",
+                    "minItems": 1,
+                    "items": {
+                      "$ref": "#/$defs/pattern"
+                    }
+                  }
+                ]
+              },
+              "operate_physical_system": {
+                "oneOf": [
+                  {
+                    "$ref": "#/$defs/pattern"
+                  },
+                  {
+                    "type": "array",
+                    "minItems": 1,
+                    "items": {
+                      "$ref": "#/$defs/pattern"
+                    }
+                  }
+                ]
+              },
+              "read_data": {
+                "oneOf": [
+                  {
+                    "$ref": "#/$defs/pattern"
+                  },
+                  {
+                    "type": "array",
+                    "minItems": 1,
+                    "items": {
+                      "$ref": "#/$defs/pattern"
+                    }
+                  }
+                ]
+              },
+              "write_data": {
+                "oneOf": [
+                  {
+                    "$ref": "#/$defs/pattern"
+                  },
+                  {
+                    "type": "array",
+                    "minItems": 1,
+                    "items": {
+                      "$ref": "#/$defs/pattern"
+                    }
+                  }
+                ]
+              }
+            }
+          },
+          "note": {
+            "type": "string"
+          }
         }
       }
     },
@@ -29,31 +281,103 @@
       "description": "First match wins; no match means deny.",
       "type": "array",
       "items": {
-        "type": "object", "additionalProperties": false, "required": ["tool", "action"],
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "action"
+        ],
         "properties": {
-          "tool": { "$ref": "#/$defs/pattern", "description": "server.tool pattern, e.g. github.push_files or github.get_*" },
+          "tool": {
+            "$ref": "#/$defs/pattern",
+            "description": "server.tool pattern, e.g. github.push_files or github.get_*"
+          },
           "when": {
             "description": "All must hold. deny/ask: argument missing or any value matches. allow: argument present and every value matches.",
             "type": "object",
             "additionalProperties": {
               "oneOf": [
-                { "$ref": "#/$defs/pattern" },
-                { "type": "array", "minItems": 1, "items": { "$ref": "#/$defs/pattern" } }
+                {
+                  "$ref": "#/$defs/pattern"
+                },
+                {
+                  "type": "array",
+                  "minItems": 1,
+                  "items": {
+                    "$ref": "#/$defs/pattern"
+                  }
+                }
               ]
             }
           },
-          "action": { "enum": ["allow", "ask", "deny"] },
-          "effect": { "enum": ["read", "write", "readwrite"], "default": "readwrite" },
-          "source": { "enum": ["trusted", "untrusted"], "default": "untrusted" },
-          "impact": { "enum": ["low", "high"], "default": "high" },
-          "note": { "type": "string" }
-        }
+          "action": {
+            "enum": [
+              "allow",
+              "ask",
+              "deny"
+            ]
+          },
+          "effect": {
+            "enum": [
+              "read",
+              "write",
+              "readwrite"
+            ],
+            "default": "readwrite"
+          },
+          "source": {
+            "enum": [
+              "trusted",
+              "untrusted"
+            ],
+            "default": "untrusted"
+          },
+          "impact": {
+            "enum": [
+              "low",
+              "high"
+            ],
+            "default": "high"
+          },
+          "note": {
+            "type": "string"
+          },
+          "capability": {
+            "description": "Select on what the tool does instead of its name. The rule reaches only tools a server declared for this capability.",
+            "enum": [
+              "network_scan",
+              "remote_access",
+              "packet_forge",
+              "malware_exec",
+              "service_disrupt",
+              "audit_tamper",
+              "guard_config_write",
+              "send_message",
+              "automated_decision",
+              "operate_physical_system",
+              "read_data",
+              "write_data"
+            ]
+          }
+        },
+        "anyOf": [
+          {
+            "required": [
+              "tool"
+            ]
+          },
+          {
+            "required": [
+              "capability"
+            ]
+          }
+        ]
       }
     }
   },
   "$defs": {
     "pattern": {
-      "type": "string", "minLength": 1,
+      "type": "string",
+      "minLength": 1,
       "description": "** any characters incl. /, * any characters except /, ? one character except /; everything else literal."
     }
   }
