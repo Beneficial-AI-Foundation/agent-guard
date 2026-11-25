@@ -32,26 +32,26 @@ def ExecutedOnlyIfAllowed : Prop :=
 /-- **A call matching no rule is never executed.** -/
 def UnmatchedDenied : Prop :=
   ∀ p approve s cs, ∀ e ∈ run p approve s cs,
-    firstMatch p.rules e.call = none →
+    firstMatch p p.rules e.call = none →
       e.decision.verdict = .deny ∧ e.executed = false
 
 /-- **If the first matching rule says deny, the call never runs.** -/
 def DenyRuleAlwaysDenies : Prop :=
   ∀ p approve s cs, ∀ e ∈ run p approve s cs,
-    action p.rules e.call = .deny →
+    action p p.rules e.call = .deny →
       e.decision.verdict = .deny ∧ e.executed = false
 
 /-- **If the first matching rule says ask, the call never runs without a person.** -/
 def AskRuleNeedsPerson : Prop :=
   ∀ p approve s cs, ∀ e ∈ run p approve s cs,
-    action p.rules e.call = .ask →
+    action p p.rules e.call = .ask →
       e.decision.verdict ≠ .allow ∧
         (e.executed = true → approve e.before e.call = true)
 
 /-- **Only an allow rule can allow.** -/
 def AllowNeedsAllowRule : Prop :=
   ∀ p approve s cs, ∀ e ∈ run p approve s cs,
-    e.decision.verdict = .allow → action p.rules e.call = .allow
+    e.decision.verdict = .allow → action p p.rules e.call = .allow
 
 /-- **No exfiltration.** Nothing goes to a place below what was already read:
 every call that isn't denied (so every call that runs, and every call shown to a
@@ -95,6 +95,57 @@ a run. -/
 def StoppedSticky : Prop :=
   ∀ p approve s cs, s.stopped = true →
     ∀ e ∈ run p approve s cs, e.before.stopped = true ∧ e.after.stopped = true
+/-! ## Resources
+
+`NoExfiltration` is about the labels a call reads and writes; `resources` is
+what decides those labels. These three say the slot behaves. -/
+
+/-- **A server the policy does not list names no resource.** Nothing is assumed
+about a connection that hasn't been declared, so its calls take the safe labels
+below rather than a guess at how it names things. -/
+def UnlistedServerNamesNothing : Prop :=
+  ∀ p c, serverOf p c = none → knownLabel p c = none
+
+/-- **A flat server has exactly its declared label**, whatever the call's
+arguments are: nothing it reads pushes the session above `l`, and it can be
+written to from any session at or below `l`. This is what stops a second
+connection from poisoning the session on its first read. -/
+def FlatServerLabel : Prop :=
+  ∀ p c l, serverResource p c = some (.flat l) →
+    readLabel p c = l ∧ writeLabel p c = l
+
+/-- **An unnameable resource still counts in the safe direction.** Reading it
+is treated as the highest label and writing to it as the lowest, so a server
+the policy says nothing about can never be used to launder data. -/
+def UnknownResourceIsSafe : Prop :=
+  ∀ p c, knownLabel p c = none →
+    readLabel p c = p.top ∧ writeLabel p c = 0
+
+/-! ## Capabilities
+
+A rule may select on a **capability** rather than a tool name. These say the
+selection is scoped: a capability rule reaches only the tools a connection
+declared for it, and a rule that names no capability behaves as it does today. -/
+
+/-- **A capability rule needs a declaration.** It never applies to a call whose
+server did not declare that capability for that tool — so pasting
+`capability: send_message, action: ask` at the top of a rule file cannot reach
+a server that never said it sends anything. -/
+def CapabilityNeedsDeclaration : Prop :=
+  ∀ (p : Policy) (r : Rule) (c : ToolCall) (cp : Capability),
+    r.cap = some cp → cp ∉ capsOf p c → ¬ r.Applies p c
+
+/-- **An unlisted server has no capabilities**, so no capability rule fires for
+it and its calls fall through to the rules selected by name — and, failing
+those, to deny. -/
+def UnlistedServerHasNoCaps : Prop :=
+  ∀ p c, serverOf p c = none → capsOf p c = []
+
+/-- **Rules selected by name are unchanged.** A rule with no `capability` applies
+exactly when its tool pattern and conditions say so, as every rule does today. -/
+def NameRulesUnchanged : Prop :=
+  ∀ (p : Policy) (r : Rule) (c : ToolCall), r.cap = none →
+    (r.Applies p c ↔ Glob r.tool c.name ∧ ∀ cd ∈ r.conds, cd.Holds r.action c.args)
 
 /-- **A call sent to a person is already within the leak rules**, so approving it
 can't leak data. -/

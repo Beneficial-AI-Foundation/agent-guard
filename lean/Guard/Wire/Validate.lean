@@ -10,10 +10,18 @@ condition.
 
 ```json
 { "labels": ["public", "private"],
-  "repos":  [{ "match": "*/demo-private", "label": "private" }],
+  "resources": [{ "match": "*/demo-private", "label": "private" }],
+  "servers": [{ "name": "github",
+                "resource": { "keys": ["owner", "repo"] },
+                "capabilities": { "send_message": ["add_issue_comment"] } }],
   "rules":  [{ "tool": "github.push_files", "when": { "branch": ["main", "master"] },
-               "action": "deny", "effect": "write", "source": "trusted", "impact": "high" }] }
+               "action": "deny", "effect": "write", "source": "trusted", "impact": "high" },
+             { "capability": "send_message", "action": "ask" }] }
 ```
+
+A rule gives `tool`, `capability`, or both. With `capability` alone the tool
+pattern is `**`, so the rule reaches exactly the tools a server declared for
+that capability.
 
 Omitted rule attributes take their safe values: `effect: readwrite`,
 `source: untrusted`, `impact: high`.
@@ -48,10 +56,69 @@ def decodeEnum {α} (j : Json) (k what : String) (dflt : α) (opts : List (Strin
     | none => throw s!"{what}.{k}: \"{s}\" is not one of {", ".intercalate (opts.map (·.1))}"
   | .ok _ => throw s!"{what}.{k} must be a string"
 
+/-- The capability vocabulary, as it is written in a rule file. Closed: a name
+outside this list is an error, so a typo can't become a rule that never fires. -/
+def capabilityNames : List (String × Capability) :=
+  [ ("network_scan", .networkScan), ("remote_access", .remoteAccess),
+    ("packet_forge", .packetForge), ("malware_exec", .malwareExec),
+    ("service_disrupt", .serviceDisrupt), ("audit_tamper", .auditTamper),
+    ("guard_config_write", .guardConfigWrite), ("send_message", .sendMessage),
+    ("automated_decision", .automatedDecision),
+    ("operate_physical_system", .operatePhysicalSystem),
+    ("read_data", .readData), ("write_data", .writeData) ]
+
+def decodeCapability (what name : String) : Except String Capability :=
+  match capabilityNames.lookup name with
+  | some cp => pure cp
+  | none =>
+    throw s!"{what}: \"{name}\" is not a capability ({", ".intercalate (capabilityNames.map (·.1))})"
+
+def decodeResource (labels : List String) (what : String) (j : Json) : Except String Resource := do
+  checkKeys j what ["keys", "label"]
+  match j.getObjVal? "keys", j.getObjVal? "label" with
+  | .ok _, .ok _ => throw s!"{what}: give keys or label, not both"
+  | .ok (.arr xs), _ => do
+    if xs.isEmpty then throw s!"{what}.keys: needs at least one argument name"
+    pure (.keys (← xs.toList.mapM fun
+      | .str s => if s.isEmpty then throw s!"{what}.keys: empty name" else pure s
+      | _ => throw s!"{what}.keys: names must be strings"))
+  | .ok _, _ => throw s!"{what}.keys must be a list of argument names"
+  | _, .ok (.str name) =>
+    match labels.idxOf? name with
+    | some l => pure (.flat l)
+    | none => throw s!"{what}.label: \"{name}\" is not in labels {labels}"
+  | _, .ok _ => throw s!"{what}.label must be a label name"
+  | _, _ => throw s!"{what}: needs keys (argument names) or label (a label name)"
+
+def decodeServer (labels : List String) (i : Nat) (j : Json) : Except String Server := do
+  let what := s!"servers[{i + 1}]"
+  checkKeys j what ["name", "resource", "capabilities", "note"]
+  let name ← getStr j "name" what
+  if name.isEmpty then throw s!"{what}.name: empty pattern"
+  let resource ← match j.getObjVal? "resource" with
+    | .error _ | .ok .null => pure none
+    | .ok r => pure (some (← decodeResource labels s!"{what}.resource" r))
+  let caps ← match j.getObjVal? "capabilities" with
+    | .error _ | .ok .null => pure []
+    | .ok cj => do
+      let kvs ← objFields cj s!"{what}.capabilities"
+      kvs.mapM fun (k, v) => do
+        let cap ← decodeCapability s!"{what}.capabilities" k
+        pure { cap, tools := ← decodePats s!"{what}.capabilities.{k}" v : CapTools }
+  pure { name, resource, caps }
+
 def decodeRule (i : Nat) (j : Json) : Except String Rule := do
   let what := s!"rules[{i + 1}]"
-  checkKeys j what ["tool", "when", "action", "effect", "source", "impact", "note"]
-  let tool ← getStr j "tool" what
+  checkKeys j what
+    ["tool", "capability", "when", "action", "effect", "source", "impact", "note"]
+  let cap ← match j.getObjVal? "capability" with
+    | .error _ | .ok .null => pure none
+    | .ok (.str s) => pure (some (← decodeCapability s!"{what}.capability" s))
+    | .ok _ => throw s!"{what}.capability must be a string"
+  -- A rule selected by capability alone matches any tool name.
+  let tool ← match j.getObjVal? "tool", cap with
+    | .error _, some _ => pure "**"
+    | _, _ => getStr j "tool" what
   if tool.isEmpty then throw s!"{what}.tool: empty pattern"
   if (j.getObjVal? "action").toOption.isNone then
     throw s!"{what}.action is missing (allow, ask or deny)"
@@ -68,7 +135,7 @@ def decodeRule (i : Nat) (j : Json) : Except String Rule := do
       kvs.mapM fun (k, v) => do
         if k.isEmpty then throw s!"{what}.when: empty argument name"
         pure { key := k, pats := ← decodePats s!"{what}.when.{k}" v : Cond }
-  pure { tool, conds, action, effect, untrusted, highImpact }
+  pure { tool, cap, conds, action, effect, untrusted, highImpact }
 
 def decodeLabels (j : Json) : Except String (List String) := do
   let xs ← match j.getObjVal? "labels" with
@@ -82,8 +149,9 @@ def decodeLabels (j : Json) : Except String (List String) := do
   if names.eraseDups.length != names.length then throw "labels: names must be different"
   pure names
 
-def decodeRepo (labels : List String) (i : Nat) (j : Json) : Except String RepoLabel := do
-  let what := s!"repos[{i + 1}]"
+def decodeResourceLabel (labels : List String) (i : Nat) (j : Json) :
+    Except String ResourceLabel := do
+  let what := s!"resources[{i + 1}]"
   checkKeys j what ["match", "label", "note"]
   let pat ← getStr j "match" what
   if pat.isEmpty then throw s!"{what}.match: empty pattern"
@@ -95,21 +163,32 @@ def decodeRepo (labels : List String) (i : Nat) (j : Json) : Except String RepoL
 /-- The whole rule file, or every problem found in it. -/
 def decodePolicy (j : Json) : Except (List String) Policy := Id.run do
   let mut errs : Array String := #[]
-  if let .error e := checkKeys j "rule file" ["labels", "repos", "rules", "version"] then
+  if let .error e := checkKeys j "rule file"
+      ["labels", "resources", "servers", "rules", "version"] then
     errs := errs.push e
   let (labels?, errs') := collect errs (decodeLabels j)
   errs := errs'
   let labels := labels?.getD []
-  let mut repos : Array RepoLabel := #[]
-  match j.getObjVal? "repos" with
+  let mut resources : Array ResourceLabel := #[]
+  match j.getObjVal? "resources" with
   | .error _ | .ok .null => pure ()
   | .ok (.arr xs) =>
     for h : i in [0:xs.size] do
       if labels?.isSome then
-        let (r?, errs') := collect errs (decodeRepo labels i xs[i])
+        let (r?, errs') := collect errs (decodeResourceLabel labels i xs[i])
         errs := errs'
-        if let some r := r? then repos := repos.push r
-  | .ok _ => errs := errs.push "repos must be a list"
+        if let some r := r? then resources := resources.push r
+  | .ok _ => errs := errs.push "resources must be a list"
+  let mut servers : Array Server := #[]
+  match j.getObjVal? "servers" with
+  | .error _ | .ok .null => pure ()
+  | .ok (.arr xs) =>
+    for h : i in [0:xs.size] do
+      if labels?.isSome then
+        let (sv?, errs') := collect errs (decodeServer labels i xs[i])
+        errs := errs'
+        if let some sv := sv? then servers := servers.push sv
+  | .ok _ => errs := errs.push "servers must be a list"
   let mut rules : Array Rule := #[]
   match j.getObjVal? "rules" with
   | .ok (.arr xs) =>
@@ -120,7 +199,8 @@ def decodePolicy (j : Json) : Except (List String) Policy := Id.run do
   | .ok _ => errs := errs.push "rules must be a list"
   | .error _ => errs := errs.push "rules is missing"
   if errs.isEmpty then
-    return .ok { labelCount := labels.length, repos := repos.toList, rules := rules.toList }
+    return .ok { labelCount := labels.length, resources := resources.toList,
+                 servers := servers.toList, rules := rules.toList }
   else
     return .error errs.toList
 

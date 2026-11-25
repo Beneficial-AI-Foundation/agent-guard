@@ -10,11 +10,13 @@ open Guard
 
 def rule (tool : String) (conds : List Cond) (a : Action) (e : Effect)
     (untrusted highImpact : Bool) : Rule :=
-  Rule.mk tool conds a e untrusted highImpact
+  { tool, conds, action := a, effect := e, untrusted, highImpact }
 
-def github : Policy := Policy.mk 2
-  [⟨"*/demo-public", 0⟩, ⟨"*/demo-private", 1⟩]
-  [ rule "github.get_file_contents" [] .allow .read false false,
+def github : Policy where
+  labelCount := 2
+  resources := [⟨"*/demo-public", 0⟩, ⟨"*/demo-private", 1⟩]
+  servers := [{ name := "github", resource := some (.keys ["owner", "repo"]) }]
+  rules := [ rule "github.get_file_contents" [] .allow .read false false,
     rule "github.get_me" [] .allow .read false false,
     rule "github.list_branches" [] .allow .read false false,
     rule "github.issue_read" [] .allow .read true false,

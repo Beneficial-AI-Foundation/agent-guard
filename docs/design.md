@@ -9,7 +9,7 @@ Why AgentGuard is built the way it is. What the pieces are: [architecture.md](ar
 
 ## The whole decision is in Lean
 
-- Lean parses the rules and the raw tool call, matches tool, argument, path and repository patterns, classifies the call, decides, and updates the session. Python converts YAML to JSON, moves bytes, and forwards only on allow.
+- Lean parses the rules and the raw tool call, matches tool, capability, argument and resource patterns, classifies the call, decides, and updates the session. Python converts YAML to JSON, moves bytes, and forwards only on allow.
 - **`Spec/` is the meaning, `Proofs/` proves it.** The spec is executable, so the worker runs `Guard.step` from `Spec/` itself. Only glob matching has a separate, faster implementation (`Impl/Glob.lean`), proved equal to the spec. Less separate code means less to trust.
 - Theorem statements are written first and reviewed by a person before they are proved. They are stated over whole runs, for every rule file, call sequence and approver.
 - Lean 4 without Mathlib: glob matching and argument lookup are written and proved by hand.
@@ -19,7 +19,7 @@ Why AgentGuard is built the way it is. What the pieces are: [architecture.md](ar
 - **First matching rule decides; no match means deny.**
 - **Conditions fail safe.** For `deny` and `ask` rules a condition holds if the argument is missing or any value matches; for `allow` rules only if it's present and every value matches. A condition sees every value of its key at any depth (`files[].path` too).
 - **Omitted attributes take the safe value:** `effect: readwrite`, `source: untrusted`, `impact: high`. Unknown keys are errors.
-- **Repository names are lowercased** before matching, because GitHub is case-insensitive (`Demo-Private` must not escape `*/demo-private`). An unknown repository counts as the highest label when read and the lowest when written, so the template lists repositories rather than using a `*` catch-all.
+- **Resource names are lowercased** before matching, because many services are case-insensitive (`Demo-Private` must not escape `*/demo-private`). A resource the policy can't name counts as the highest label when read and the lowest when written, so a template lists its resources rather than using a `*` catch-all.
 - **`**.github/**`, not `.github/workflows/**`,** in the ask rule: it also catches `./.github/…`, `CODEOWNERS` and actions.
 - **Reviews use an allowlist** (`COMMENT`, `REQUEST_CHANGES`); anything else, including `approve`, is denied.
 

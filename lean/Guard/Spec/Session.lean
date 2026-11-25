@@ -13,16 +13,28 @@ stopped:
 None of the three ever goes back down: rewording data doesn't launder it, and a
 stopped session is not restarted by anything `step` does.
 
-## Repositories
+## Resources
 
-A call's repository is `owner/repo` from its top-level `owner` and `repo`
-arguments, **lowercased** (GitHub treats repository names case-insensitively,
-so `Demo-Private` must not escape a `*/demo-private` pattern). Repository
-patterns are lowercased too. The first matching `repos` entry gives its label.
+Every call touches a **resource**, and the resource's label is what the leak
+rules are about. A policy's `servers` says how each one names a resource:
 
-If the call names no repository, or no entry matches, the label is unknown and
-counts in the safe direction: **reading** it counts as the highest label,
-**writing** to it counts as the lowest.
+* `keys [owner, repo]` — join those top-level arguments with `/`. The result is
+  matched against the `resources` patterns, first match wins.
+* `flat l` — every call on that server touches data at label `l`.
+
+Names and patterns are compared **lowercased**, because many services treat
+names case-insensitively: `Demo-Private` must not escape a `*/demo-private`
+pattern.
+
+A server the policy does not list, or that says nothing about resources, names
+no resource at all.
+
+If the call names no resource, or no `resources` entry matches, the label is
+unknown and counts in the safe direction: **reading** it counts as the highest
+label, **writing** to it counts as the lowest. That is safe but costly for a
+server with no per-call resource: its first read pushes the session to the top
+label, and writes below that are then denied as leaks. `flat` is the way to say
+what such a server holds.
 
 ## The decision (`step`), in order
 
@@ -61,18 +73,26 @@ def lookupStr (args : Args) (k : String) : Option String :=
   | some (_, .str s) => some s
   | _ => none
 
-/-- `owner/repo`, lowercased. -/
-def repoOf (args : Args) : Option String := do
-  let o ← lookupStr args "owner"
-  let r ← lookupStr args "repo"
-  pure (lower (o ++ "/" ++ r))
+/-- The values of `names`, in order, joined with `/` and lowercased. Every key
+must be present, or the resource has no name. -/
+def resourceName (names : List String) (args : Args) : Option String :=
+  match names with
+  | [] => none
+  | _ => (names.mapM (lookupStr args)).map fun vs => lower (String.intercalate "/" vs)
 
-/-- The label of the first `repos` entry matching the repository name. -/
-def repoLabel (p : Policy) (name : String) : Option Label :=
-  (p.repos.find? (fun r => decide (Glob (lower r.pat) name))).map (·.label)
+/-- How the call's server names a resource, if the policy lists it and it says. -/
+def serverResource (p : Policy) (c : ToolCall) : Option Resource :=
+  (serverOf p c).bind (·.resource)
+
+/-- The label of the first `resources` entry matching the resource name. -/
+def resourceLabel (p : Policy) (name : String) : Option Label :=
+  (p.resources.find? (fun r => decide (Glob (lower r.pat) name))).map (·.label)
 
 def knownLabel (p : Policy) (c : ToolCall) : Option Label :=
-  (repoOf c.args).bind (repoLabel p)
+  match serverResource p c with
+  | some (.flat l) => some l
+  | some (.keys names) => (resourceName names c.args).bind (resourceLabel p)
+  | none => none
 
 /-- Reading an unknown repository counts as the highest label. -/
 def readLabel (p : Policy) (c : ToolCall) : Label :=
@@ -98,7 +118,7 @@ structure Class where
   deriving Repr
 
 def classify (p : Policy) (c : ToolCall) : Class :=
-  match firstMatch p.rules c with
+  match firstMatch p p.rules c with
   | some (i, r) =>
     { rule := some (i, r)
       action := r.action

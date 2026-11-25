@@ -31,7 +31,7 @@ def test_console_api(tmp_path: Path, worker_binary: Path) -> None:
                     await c.get("/api/status", headers={"X-AgentGuard-Token": "x"})
                 ).status_code == 401
                 status = (await c.get("/api/status", headers=h)).json()
-                assert status["servers"] == ["echo"] and len(status["theorems"]) == 12
+                assert status["servers"] == ["echo"] and len(status["theorems"]) == 18
 
                 # an approval answered through the console
                 s = gw.sessions.get("stdio")

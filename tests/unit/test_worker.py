@@ -13,7 +13,7 @@ from agentguard.monitor.worker import SessionState, Worker
 
 POLICY = {
     "labels": ["public", "private"],
-    "repos": [{"match": "*/demo-private", "label": "private"}],
+    "resources": [{"match": "*/demo-private", "label": "private"}],
     "rules": [
         {"tool": "github.get_*", "action": "allow", "effect": "read", "source": "trusted"},
         {"tool": "github.merge_pull_request", "action": "deny"},

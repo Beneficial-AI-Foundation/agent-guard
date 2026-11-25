@@ -7,6 +7,7 @@ Every verdict AgentGuard gives (allow, ask or deny) is computed by Lean code who
 All of them hold for **every** rule file, **every** sequence of tool calls, **every** starting session, and **every** person answering the `ask` prompts, even one who approves everything. So they hold however the agent is tricked into choosing its calls.
 
 `kill_switch` and `stopped_sticky` are **proved, but not yet reachable from a rule file**: nothing sets `Session.stopped` yet, so no profile can trigger them. The console control lands separately.
+The last six are about the `servers` block: how a connection names the thing a call touches, and which of its tools have each capability. See [rules.md](rules.md#servers-resources-and-capabilities).
 
 | Theorem | In plain words |
 |---|---|
@@ -22,6 +23,12 @@ All of them hold for **every** rule file, **every** sequence of tool calls, **ev
 | `approval_cannot_leak` | A call shown to a person is already within the leak rules, so approving it can't leak. |
 | `kill_switch` | Once a person has stopped the session, no later call runs, whatever the rules say and whoever answers `ask`. |
 | `stopped_sticky` | A stopped session stays stopped: nothing `step` does clears the flag. |
+| `unlisted_server_names_nothing` | A server the policy doesn't list names no resource, so nothing is assumed about an undeclared connection. |
+| `flat_server_label` | A server declared `flat l` reads and writes at label `l`, whatever the call's arguments say. |
+| `unknown_resource_is_safe` | A resource the policy can't name is read as the highest label and written as the lowest, so it can't launder data. |
+| `capability_needs_declaration` | A rule selected by capability never reaches a tool whose connection didn't declare that capability. |
+| `unlisted_server_has_no_caps` | A server the policy doesn't list has no capabilities, so no capability rule fires for it. |
+| `name_rules_unchanged` | A rule with no capability applies exactly on its tool pattern and conditions, as every rule does today. |
 
 The exact statements are in [`lean/Guard/Spec/Safety.lean`](../lean/Guard/Spec/Safety.lean), and the proofs are in [`lean/Guard/Proofs/`](../lean/Guard/Proofs/).
 
