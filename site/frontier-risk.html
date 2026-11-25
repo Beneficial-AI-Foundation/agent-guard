@@ -227,11 +227,11 @@ footer .wrap{display:flex;justify-content:space-between;gap:16px;flex-wrap:wrap}
   <div class="wrap">
     <div class="label">AgentGuard · demo 2 · FLI AI Safety Index rules</div>
     <h1>Safety rules from the FLI Index, enforced and proved.</h1>
-    <p class="lede">The FLI AI Safety Index and the benchmarks it uses list 388 safety rules. 40 of them are about what an agent is allowed to do. AgentGuard turns 33 of those into a ready-made rule template, and Lean proves the template keeps working <a href="#proof">whatever rules you add after it</a>.</p>
+    <p class="lede">The FLI AI Safety Index and the benchmarks it uses list 388 safety rules. 40 of them are about what an agent is allowed to do. AgentGuard turns 33 of those into a ready-made template of 20 rules, and Lean proves the template keeps working <a href="#proof">whatever rules you add after it</a>.</p>
     <div class="cta"><a class="b1" href="#demo">Watch the demo</a><a class="b2" href="index.html">See the GitHub demo</a></div>
     <div class="facts">
       <div><b>Rules from the Index</b>Taken from the FLI AI Safety Index (Summer 2026) and AIR-Bench 2024, the benchmark it uses for refusals.</div>
-      <div><b>One template, any tools</b>Network scanners, power grids, HR systems, email: the same rules sit at the top of any rule file.</div>
+      <div><b>One template, any tools</b>Every rule selects on what a tool <i>does</i>, not what it is called. Each connection declares its own capabilities; the template catches those and nothing else.</div>
       <div><b>Can't be loosened later</b>A rule added after the template, even "allow everything", never changes what the template decides.</div>
     </div>
   </div>
@@ -275,7 +275,7 @@ footer .wrap{display:flex;justify-content:space-between;gap:16px;flex-wrap:wrap}
 <main class="wrap">
   <section class="sec" id="template">
     <div class="sec-h"><div class="label">02 — The template</div>
-      <h2>33 rules at the top of your rule file</h2>
+      <h2>20 rules at the top of your rule file</h2>
       <p>Copy the template to the top of a profile's rules, then write your own rules after it. The first rule that matches decides, so the template always gets the first word.</p></div>
     <div class="rules">
       <div class="row"><span>Action</span><span>Source in the FLI Index and its benchmarks</span><span style="text-align:right">Verdict</span></div>
@@ -308,8 +308,8 @@ footer .wrap{display:flex;justify-content:space-between;gap:16px;flex-wrap:wrap}
   <section class="sec" id="limits">
     <div class="sec-h"><div class="label">04 — Limits</div><h2>What the template does not do</h2></div>
     <div class="lim">
-      <div><b>Actions, not words</b>The template stops an agent from scanning a network. It does not stop a model from explaining how to; that needs a classifier or a person.</div>
-      <div><b>Tool names are placeholders</b>A rule only catches the tools its pattern matches. A scanner called <code>nmap.run</code> needs its own pattern.</div>
+      <div><b>Actions, not words</b>The template stops an agent from scanning a network. It does not stop a model from explaining how to; that needs a classifier or a person.</div><div><b>A backstop, not a wall</b>A call matching no rule is denied anyway. The deny rules here matter when something later in your file — a catch-all allow — would otherwise let it through.</div>
+      <div><b>You declare the capabilities</b>A rule reaches only the tools a connection declared. A scanner called <code>nmap.run</code> is caught once its connection says it scans networks — and not before.</div>
       <div><b>Our reading of the rules</b>Which rules fit, and how they are worded, is the Beneficial AI Foundation's interpretation, not FLI's or the benchmark authors'.</div>
       <div><b>Fictional stories</b>The demo's agents, tools and people are made up. It runs in your browser and calls nothing.</div>
     </div>

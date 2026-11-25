@@ -3,64 +3,74 @@
 # The frontier-risk template: rules from the FLI AI Safety Index (Summer 2026)
 # and AIR-Bench 2024 about what an agent may do. See docs/frontier-risk.md.
 #
-# How to use: copy the rules below to the TOP of your profile's `rules:` list.
-# Lean proves (lean/Guard/Rulesets/FrontierRisk.lean) that whatever rules you
-# put after them, a call caught by a deny rule here is denied, and a call caught
-# by an ask rule here is never allowed without a person.
+# How to use:
+#   1. Declare, in your profile's `servers:`, which of each connection's tools
+#      do these things. That declaration is the whole of the template's reach.
+#   2. Copy the rules below to the TOP of your profile's `rules:` list.
 #
-# Tool names are PLACEHOLDERS. Before relying on a rule, check that its pattern
-# catches the real tool names of the MCP servers in your profile (and add
-# patterns if it doesn't). Patterns match `server.tool`; `*` never matches `/`.
+# Every rule selects on a capability, so the template says nothing about what
+# your tools are called. A rule here can never reach a server that declared
+# nothing (`capability_needs_declaration`), so pasting it at the top cannot
+# change what an undeclared connection may do.
+#
+# Lean proves (lean/Guard/Rulesets/FrontierRisk.lean) that whatever rules you
+# put after these, a call caught by a deny rule here is denied, and a call
+# caught by an ask rule here is never allowed without a person.
 #
 # Keep this list identical to `frontierTemplate` in the Lean file, in the same
 # order: tests/unit/test_frontier_risk.py checks that.
 
 labels: [public]
 
+servers:
+  # An example. Replace with your own connections: the capability names are
+  # fixed (docs/rules.md lists all twelve), the tool patterns are yours.
+  - name: github
+    resource: { keys: [owner, repo] }
+    capabilities:
+      send_message: [add_issue_comment, issue_write]
+      write_data: [push_files, create_or_update_file, delete_file]
+
 rules:
   # Never: offensive cyber actions (AIR-Bench 1.1-1.3)
-  - { tool: "*.port_scan*", action: deny, note: "R075 AIR-Bench 1.1.1 Network intrusion" }
-  - { tool: "*.vuln_scan*", action: deny, note: "R076 AIR-Bench 1.1.2 Vulnerability probing" }
-  - { tool: "*.spoof_*", action: deny, note: "R077 AIR-Bench 1.1.3 Spoofing" }
-  - { tool: "*.remote_login*", action: deny, note: "R080 AIR-Bench 1.1.6 Unauthorized network entry" }
-  - { tool: "*.run_unsandboxed*", action: deny, note: "R081 AIR-Bench 1.2.7 Malware" }
-  - { tool: "*.raw_packet*", action: deny, note: "R082 AIR-Bench 1.2.8 Packet forgery" }
-  - { tool: "*.edit_audit_log*", action: deny, note: "R083 AIR-Bench 1.2.9 Data tampering" }
-  - { tool: "*.push_files", when: { path: "agentguard/**" }, action: deny, note: "R084 AIR-Bench 1.2.10 Control override: never edit AgentGuard's own files. Also denies a push with no path at all." }
-  - { tool: "*.flood_*", action: deny, note: "R085 AIR-Bench 1.3.11 System/Website impairment" }
-  - { tool: "*.network_config*", action: deny, note: "R086 AIR-Bench 1.3.12 Network disruption" }
+  - { capability: network_scan, action: deny, note: "R075, R076 AIR-Bench 1.1.1 Network intrusion, 1.1.2 Vulnerability probing" }
+  - { capability: packet_forge, action: deny, note: "R077, R082 AIR-Bench 1.1.3 Spoofing, 1.2.8 Packet forgery" }
+  - { capability: remote_access, action: deny, note: "R080 AIR-Bench 1.1.6 Unauthorized network entry" }
+  - { capability: malware_exec, action: deny, note: "R081 AIR-Bench 1.2.7 Malware" }
+  - { capability: audit_tamper, action: deny, note: "R083 AIR-Bench 1.2.9 Data tampering" }
 
-  # Never: autonomously operate critical systems (AIR-Bench 2.5)
-  - { tool: "machinery.*", action: deny, note: "R097 AIR-Bench 2.5.11 Heavy machinery" }
-  - { tool: "transport.*", action: deny, note: "R098 AIR-Bench 2.5.12 Transportation" }
-  - { tool: "grid.*", action: deny, note: "R099 AIR-Bench 2.5.13 Energy/Electrical grids" }
-  - { tool: "nuclear.*", action: deny, note: "R100 AIR-Bench 2.5.14 Nuclear facilities" }
-  - { tool: "aviation.*", action: deny, note: "R101 AIR-Bench 2.5.15 Aircraft navigation/Air traffic control" }
-  - { tool: "telecom.*", action: deny, note: "R102 AIR-Bench 2.5.16 Communication systems" }
-  - { tool: "water.*", action: deny, note: "R103 AIR-Bench 2.5.17 Water treatment facilities" }
-  - { tool: "lifesupport.*", action: deny, note: "R104 AIR-Bench 2.5.18 Life support" }
-  - { tool: "weapons.*", action: deny, note: "R105 AIR-Bench 2.5.19 Weapon systems/Battlefield management" }
-  - { tool: "emergency.*", action: deny, note: "R106 AIR-Bench 2.5.20 Emergency services" }
+  # Never: edit AgentGuard's own files. Two ways in: a connection with a
+  # dedicated configuration tool declares guard_config_write; any other write
+  # tool is caught by the path. Also denies a write with no path at all.
+  - { capability: guard_config_write, action: deny, note: "R084 AIR-Bench 1.2.10 Control override" }
+  - { capability: write_data, when: { path: "**agentguard/**" }, action: deny, note: "R084 AIR-Bench 1.2.10 Control override, by path" }
+
+  - { capability: service_disrupt, action: deny, note: "R085, R086 AIR-Bench 1.3.11 System/Website impairment, 1.3.12 Network disruption" }
+
+  # Never: autonomously operate critical systems (AIR-Bench 2.5.11-2.5.20):
+  # heavy machinery, transportation, energy grids, nuclear facilities, air
+  # traffic control, communication systems, water treatment, life support,
+  # weapon systems, emergency services.
+  - { capability: operate_physical_system, action: deny, note: "R097-R106 AIR-Bench 2.5.11-2.5.20" }
 
   # Only with a person: sending messages (AIR-Bench 1.1.4, 1.1.5).
-  # An allow rule placed after the template can't let a send through: this rule
-  # matches first (that is what the proofs guarantee). To allow-list recipients,
-  # put an allow rule with a `when` on the recipient BEFORE this one, and accept
-  # that the template's proof then no longer covers those sends.
-  - { tool: "*.send_*", action: ask, note: "R078, R079 AIR-Bench 1.1.4 Spear phishing, 1.1.5 Social engineering" }
+  # To let some sends through without a person (to known recipients, say), put
+  # a narrower allow rule BEFORE this one, and accept that the template's proof
+  # no longer covers those sends.
+  - { capability: send_message, action: ask, note: "R078, R079 AIR-Bench 1.1.4 Spear phishing, 1.1.5 Social engineering" }
 
   # Only with a person: automated decisions about people (AIR-Bench 2.4).
   # A decision call with no `domain` argument also needs a person.
-  - { tool: "*.decide_*", when: { domain: "financing*" }, action: ask, note: "R087 AIR-Bench 2.4.1 Financing eligibility/Creditworthiness" }
-  - { tool: "*.decide_*", when: { domain: "criminal*" }, action: ask, note: "R088 AIR-Bench 2.4.2 Criminal justice/Predictive policing" }
-  - { tool: "*.decide_*", when: { domain: "legal*" }, action: ask, note: "R089 AIR-Bench 2.4.3 Adversely affects legal rights" }
-  - { tool: "*.decide_*", when: { domain: "employment*" }, action: ask, note: "R090 AIR-Bench 2.4.4 Employment" }
-  - { tool: "*.decide_*", when: { domain: "social_scoring*" }, action: ask, note: "R091 AIR-Bench 2.4.5 Social scoring" }
-  - { tool: "*.decide_*", when: { domain: "housing*" }, action: ask, note: "R092 AIR-Bench 2.4.6 Housing eligibility" }
-  - { tool: "*.decide_*", when: { domain: "education*" }, action: ask, note: "R093 AIR-Bench 2.4.7 Education eligibility" }
-  - { tool: "*.decide_*", when: { domain: "migration*" }, action: ask, note: "R094 AIR-Bench 2.4.8 Migration eligibility" }
-  - { tool: "*.decide_*", when: { domain: "insurance*" }, action: ask, note: "R095 AIR-Bench 2.4.9 Insurance eligibility" }
-  - { tool: "*.decide_*", when: { domain: "profiling*" }, action: ask, note: "R096 AIR-Bench 2.4.10 Profiling" }
+  - { capability: automated_decision, when: { domain: "financing*" }, action: ask, note: "R087 AIR-Bench 2.4.1 Financing eligibility/Creditworthiness" }
+  - { capability: automated_decision, when: { domain: "criminal*" }, action: ask, note: "R088 AIR-Bench 2.4.2 Criminal justice/Predictive policing" }
+  - { capability: automated_decision, when: { domain: "legal*" }, action: ask, note: "R089 AIR-Bench 2.4.3 Adversely affects legal rights" }
+  - { capability: automated_decision, when: { domain: "employment*" }, action: ask, note: "R090 AIR-Bench 2.4.4 Employment" }
+  - { capability: automated_decision, when: { domain: "social_scoring*" }, action: ask, note: "R091 AIR-Bench 2.4.5 Social scoring" }
+  - { capability: automated_decision, when: { domain: "housing*" }, action: ask, note: "R092 AIR-Bench 2.4.6 Housing eligibility" }
+  - { capability: automated_decision, when: { domain: "education*" }, action: ask, note: "R093 AIR-Bench 2.4.7 Education eligibility" }
+  - { capability: automated_decision, when: { domain: "migration*" }, action: ask, note: "R094 AIR-Bench 2.4.8 Migration eligibility" }
+  - { capability: automated_decision, when: { domain: "insurance*" }, action: ask, note: "R095 AIR-Bench 2.4.9 Insurance eligibility" }
+  - { capability: automated_decision, when: { domain: "profiling*" }, action: ask, note: "R096 AIR-Bench 2.4.10 Profiling" }
 
   # Your own rules go here, after the template.
   # Anything no rule matches is denied (R107 AIR-Bench 2.5.21 needs no rule).

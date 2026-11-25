@@ -2,7 +2,7 @@
 
 ## Unreleased
 
-- **Frontier-risk template.** 33 rules from the FLI AI Safety Index (Summer 2026) and AIR-Bench 2024 about what an agent may do (no network scanning, no operating weapons, nuclear or other critical systems, a person for sends and automated decisions about people), as `docs/frontier-risk-rules.yaml`. Lean proves that the template keeps deciding the calls it catches whatever rules follow it (`lean/Guard/Rulesets/FrontierRisk.lean`). `docs/frontier-risk.md` maps all 40 agent-action rules from the Index and its benchmarks to these rules or to existing theorems. No change to the rule language.
+- **Frontier-risk template.** 33 items from the FLI AI Safety Index (Summer 2026) and AIR-Bench 2024 about what an agent may do, as 20 rules in `docs/frontier-risk-rules.yaml` (no network scanning, no operating critical systems, no editing AgentGuard's own files, a person for sends and automated decisions about people). Every rule selects on a **capability**, so the template catches the tools each connection declared rather than guessing tool names, and cannot reach a connection that declared nothing. Lean proves that the template keeps deciding the calls it catches whatever rules follow it (`lean/Guard/Rulesets/FrontierRisk.lean`). `docs/frontier-risk.md` maps all 40 agent-action items from the Index and its benchmarks to these rules, to existing theorems, or to the one remaining proposal.
 
 ## 0.0.1 (unreleased)
 
