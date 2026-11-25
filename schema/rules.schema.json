@@ -24,8 +24,8 @@
         "minLength": 1
       }
     },
-    "repos": {
-      "description": "First match wins. Repository names are compared lowercased. Unlisted repositories count as the highest label when read and the lowest when written.",
+    "resources": {
+      "description": "Resource names and their labels. First match wins. Names are compared lowercased. A resource no entry matches counts as the highest label when read and the lowest when written.",
       "type": "array",
       "items": {
         "type": "object",
@@ -37,7 +37,7 @@
         "properties": {
           "match": {
             "$ref": "#/$defs/pattern",
-            "description": "owner/repo pattern, e.g. */demo-private"
+            "description": "resource name pattern, e.g. */demo-private"
           },
           "label": {
             "type": "string",

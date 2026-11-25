@@ -2,7 +2,7 @@
 # Glob patterns (spec)
 
 Patterns are used for tool names (`github.get_*`), argument values
-(`.github/**`, `main`) and repository names (`*/demo-private`).
+(`.github/**`, `main`) and resource names (`*/demo-private`).
 
 | Pattern | Matches                                            |
 |---------|----------------------------------------------------|

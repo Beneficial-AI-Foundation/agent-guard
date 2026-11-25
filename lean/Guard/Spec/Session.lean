@@ -16,17 +16,17 @@ Every call touches a **resource**, and the resource's label is what the leak
 rules are about. A policy's `servers` says how each one names a resource:
 
 * `keys [owner, repo]` — join those top-level arguments with `/`. The result is
-  matched against the `repos` patterns, first match wins.
+  matched against the `resources` patterns, first match wins.
 * `flat l` — every call on that server touches data at label `l`.
 
-Names and patterns are compared **lowercased** (GitHub treats repository names
-case-insensitively, so `Demo-Private` must not escape a `*/demo-private`
-pattern).
+Names and patterns are compared **lowercased**, because many services treat
+names case-insensitively: `Demo-Private` must not escape a `*/demo-private`
+pattern.
 
-A server the policy does not list, or that says nothing about resources, is
-read as GitHub is read, `owner` and `repo` — what every rule file does today.
+A server the policy does not list, or that says nothing about resources, names
+no resource at all.
 
-If the call names no resource, or no `repos` entry matches, the label is
+If the call names no resource, or no `resources` entry matches, the label is
 unknown and counts in the safe direction: **reading** it counts as the highest
 label, **writing** to it counts as the lowest. That is safe but costly for a
 server with no per-call resource: its first read pushes the session to the top
@@ -63,13 +63,6 @@ def lookupStr (args : Args) (k : String) : Option String :=
   | some (_, .str s) => some s
   | _ => none
 
-/-- `owner/repo`, lowercased. The resource name used when a policy declares no
-`resources` of its own. -/
-def repoOf (args : Args) : Option String := do
-  let o ← lookupStr args "owner"
-  let r ← lookupStr args "repo"
-  pure (lower (o ++ "/" ++ r))
-
 /-- The values of `names`, in order, joined with `/` and lowercased. Every key
 must be present, or the resource has no name. -/
 def resourceName (names : List String) (args : Args) : Option String :=
@@ -81,15 +74,15 @@ def resourceName (names : List String) (args : Args) : Option String :=
 def serverResource (p : Policy) (c : ToolCall) : Option Resource :=
   (serverOf p c).bind (·.resource)
 
-/-- The label of the first `repos` entry matching the repository name. -/
-def repoLabel (p : Policy) (name : String) : Option Label :=
-  (p.repos.find? (fun r => decide (Glob (lower r.pat) name))).map (·.label)
+/-- The label of the first `resources` entry matching the resource name. -/
+def resourceLabel (p : Policy) (name : String) : Option Label :=
+  (p.resources.find? (fun r => decide (Glob (lower r.pat) name))).map (·.label)
 
 def knownLabel (p : Policy) (c : ToolCall) : Option Label :=
   match serverResource p c with
   | some (.flat l) => some l
-  | some (.keys names) => (resourceName names c.args).bind (repoLabel p)
-  | none => (repoOf c.args).bind (repoLabel p)
+  | some (.keys names) => (resourceName names c.args).bind (resourceLabel p)
+  | none => none
 
 /-- Reading an unknown repository counts as the highest label. -/
 def readLabel (p : Policy) (c : ToolCall) : Label :=

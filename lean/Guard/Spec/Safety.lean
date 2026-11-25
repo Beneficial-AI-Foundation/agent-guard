@@ -87,11 +87,11 @@ def NoUntrustedSteering : Prop :=
 `NoExfiltration` is about the labels a call reads and writes; `resources` is
 what decides those labels. These three say the slot behaves. -/
 
-/-- **A policy that lists no servers behaves exactly as before.** The migration
-statement: every rule file written today keeps its meaning. -/
-def ResourceDefaultIsRepo : Prop :=
-  ∀ p c, p.servers = [] →
-    knownLabel p c = (repoOf c.args).bind (repoLabel p)
+/-- **A server the policy does not list names no resource.** Nothing is assumed
+about a connection that hasn't been declared, so its calls take the safe labels
+below rather than a guess at how it names things. -/
+def UnlistedServerNamesNothing : Prop :=
+  ∀ p c, serverOf p c = none → knownLabel p c = none
 
 /-- **A flat server has exactly its declared label**, whatever the call's
 arguments are: nothing it reads pushes the session above `l`, and it can be

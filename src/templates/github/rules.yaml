@@ -9,7 +9,15 @@
 
 labels: [public, private]          # lowest first
 
-repos:                             # first match wins; names are compared lowercased
+servers:                           # what this connection names, and what its tools do
+  - name: github
+    resource: { keys: [owner, repo] }
+    capabilities:
+      send_message: [add_issue_comment, issue_write, pull_request_review_write]
+      write_data: [push_files, create_or_update_file, delete_file]
+      read_data: [get_file_contents, search_code, issue_read, pull_request_read]
+
+resources:                         # first match wins; names are compared lowercased
   # List every repository the agent works on. An unlisted repository counts as
   # private when read and public when written.
   - { match: "*/demo-public", label: public }

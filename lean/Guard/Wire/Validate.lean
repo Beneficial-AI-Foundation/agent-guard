@@ -10,7 +10,7 @@ condition.
 
 ```json
 { "labels": ["public", "private"],
-  "repos":  [{ "match": "*/demo-private", "label": "private" }],
+  "resources": [{ "match": "*/demo-private", "label": "private" }],
   "servers": [{ "name": "github",
                 "resource": { "keys": ["owner", "repo"] },
                 "capabilities": { "send_message": ["add_issue_comment"] } }],
@@ -149,8 +149,9 @@ def decodeLabels (j : Json) : Except String (List String) := do
   if names.eraseDups.length != names.length then throw "labels: names must be different"
   pure names
 
-def decodeRepo (labels : List String) (i : Nat) (j : Json) : Except String RepoLabel := do
-  let what := s!"repos[{i + 1}]"
+def decodeResourceLabel (labels : List String) (i : Nat) (j : Json) :
+    Except String ResourceLabel := do
+  let what := s!"resources[{i + 1}]"
   checkKeys j what ["match", "label", "note"]
   let pat ← getStr j "match" what
   if pat.isEmpty then throw s!"{what}.match: empty pattern"
@@ -163,21 +164,21 @@ def decodeRepo (labels : List String) (i : Nat) (j : Json) : Except String RepoL
 def decodePolicy (j : Json) : Except (List String) Policy := Id.run do
   let mut errs : Array String := #[]
   if let .error e := checkKeys j "rule file"
-      ["labels", "repos", "servers", "rules", "version"] then
+      ["labels", "resources", "servers", "rules", "version"] then
     errs := errs.push e
   let (labels?, errs') := collect errs (decodeLabels j)
   errs := errs'
   let labels := labels?.getD []
-  let mut repos : Array RepoLabel := #[]
-  match j.getObjVal? "repos" with
+  let mut resources : Array ResourceLabel := #[]
+  match j.getObjVal? "resources" with
   | .error _ | .ok .null => pure ()
   | .ok (.arr xs) =>
     for h : i in [0:xs.size] do
       if labels?.isSome then
-        let (r?, errs') := collect errs (decodeRepo labels i xs[i])
+        let (r?, errs') := collect errs (decodeResourceLabel labels i xs[i])
         errs := errs'
-        if let some r := r? then repos := repos.push r
-  | .ok _ => errs := errs.push "repos must be a list"
+        if let some r := r? then resources := resources.push r
+  | .ok _ => errs := errs.push "resources must be a list"
   let mut servers : Array Server := #[]
   match j.getObjVal? "servers" with
   | .error _ | .ok .null => pure ()
@@ -198,7 +199,7 @@ def decodePolicy (j : Json) : Except (List String) Policy := Id.run do
   | .ok _ => errs := errs.push "rules must be a list"
   | .error _ => errs := errs.push "rules is missing"
   if errs.isEmpty then
-    return .ok { labelCount := labels.length, repos := repos.toList,
+    return .ok { labelCount := labels.length, resources := resources.toList,
                  servers := servers.toList, rules := rules.toList }
   else
     return .error errs.toList

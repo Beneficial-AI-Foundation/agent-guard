@@ -27,7 +27,7 @@ def theorems : List String :=
   [ "impl_eq_spec", "executed_only_if_allowed", "unmatched_denied",
     "deny_rule_always_denies", "ask_rule_needs_person", "allow_needs_allow_rule",
     "no_exfiltration", "level_monotone", "no_untrusted_steering", "approval_cannot_leak",
-    "resource_default_is_repo", "flat_server_label", "unknown_resource_is_safe",
+    "unlisted_server_names_nothing", "flat_server_label", "unknown_resource_is_safe",
     "capability_needs_declaration", "unlisted_server_has_no_caps",
     "name_rules_unchanged" ]
 

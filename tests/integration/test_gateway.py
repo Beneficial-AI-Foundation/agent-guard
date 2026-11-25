@@ -29,7 +29,10 @@ ECHO = Path(echo_server.__file__)
 
 RULES = """
 labels: [public, private]
-repos:
+servers:
+  - name: echo
+    resource: {keys: [owner, repo]}
+resources:
   - {match: "*/public", label: public}
   - {match: "*/private", label: private}
 rules:

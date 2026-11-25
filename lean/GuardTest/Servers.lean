@@ -1,10 +1,11 @@
 import Guard
 
 /-!
-The `servers` block, on the two-connection profile that motivates it: a GitHub
-server whose resource is `owner/repo`, and a mail server with no per-call
-resource at all. Second half: a capability rule reaches only the tools a
-connection declared for it.
+The `servers` block, on the two-connection profile that motivates it: a code
+host whose resource is `owner/repo`, and a mail server with no per-call
+resource at all. A connection that declares nothing names no resource, so
+everything it reads counts as the highest label. Second half: a capability rule
+reaches only the tools a connection declared for it.
 -/
 
 namespace GuardTest.Servers
@@ -18,18 +19,19 @@ def wr (tool : String) : Rule :=
   { tool, conds := [], action := .allow, effect := .write,
     untrusted := false, highImpact := false }
 
-def demoRepos : List RepoLabel := [⟨"*/demo-public", 0⟩, ⟨"*/demo-private", 1⟩]
+def demoResources : List ResourceLabel := [⟨"*/demo-public", 0⟩, ⟨"*/demo-private", 1⟩]
 
 def demoRules : List Rule :=
   [rd "github.get_file_contents", wr "github.push_files", rd "mail.read_inbox"]
 
-/-- A rule file as they are written today: no `resources`. -/
-def today : Policy := { labelCount := 2, repos := demoRepos, rules := demoRules }
+/-- A profile whose connections declare nothing. -/
+def undeclared : Policy :=
+  { labelCount := 2, resources := demoResources, rules := demoRules }
 
 /-- The same profile, with each server saying how it names a resource and what
 its tools do. -/
 def declared : Policy :=
-  { labelCount := 2, repos := demoRepos, rules := demoRules,
+  { labelCount := 2, resources := demoResources, rules := demoRules,
     servers := [
       { name := "github", resource := some (.keys ["owner", "repo"]),
         caps := [⟨.writeData, ["push_files"]⟩, ⟨.sendMessage, ["add_issue_comment"]⟩] },
@@ -44,23 +46,25 @@ def pushPublic : ToolCall :=
 def verdicts (p : Policy) (cs : List ToolCall) : List Verdict :=
   (run p (fun _ _ => true) {} cs).map (·.decision.verdict)
 
-/-! Today the mailbox is an unnameable resource, so reading it counts as the
-highest label and the next push to a public repo is denied as a leak. -/
-#guard verdicts today [readMail, pushPublic] == [.allow, .deny]
+/-! Undeclared, the mailbox names no resource, so reading it counts as the
+highest label and the next push to a public repository is denied as a leak. -/
+#guard verdicts undeclared [readMail, pushPublic] == [.allow, .deny]
 
 /-! With `mail` declared public, both calls go through. -/
 #guard verdicts declared [readMail, pushPublic] == [.allow, .allow]
 
-/-! `ResourceDefaultIsRepo` on this policy: no `resources` is the old behaviour. -/
-#guard knownLabel today pushPublic == (repoOf pushPublic.args).bind (repoLabel today)
+/-! `UnlistedServerNamesNothing`: nothing is assumed about an undeclared
+connection, not even that it names resources the way a code host does. -/
+#guard knownLabel undeclared pushPublic == none
 
 /-! `FlatServerLabel`: a flat server has its label whatever the arguments say. -/
 #guard readLabel declared readMail == 0
 #guard writeLabel declared readMail == 0
 
-/-! `UnknownResourceIsSafe`: an undeclared server still reads at the top label. -/
-#guard readLabel today readMail == today.top
-#guard writeLabel today readMail == 0
+/-! `UnknownResourceIsSafe`: an undeclared server still reads at the top label
+and writes at the bottom, so it can never be used to launder data. -/
+#guard readLabel undeclared readMail == undeclared.top
+#guard writeLabel undeclared readMail == 0
 
 /-! Resource names are matched lowercased, as `owner/repo` is today. -/
 #guard knownLabel declared pushPublic == some 0

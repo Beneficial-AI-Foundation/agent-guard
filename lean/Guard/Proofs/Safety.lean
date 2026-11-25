@@ -167,9 +167,9 @@ theorem name_rules_unchanged : NameRulesUnchanged := by
 
 /-! ### Resources -/
 
-theorem resource_default_is_repo : ResourceDefaultIsRepo := by
+theorem unlisted_server_names_nothing : UnlistedServerNamesNothing := by
   intro p c h
-  simp [knownLabel, serverResource, serverOf, h]
+  simp [knownLabel, serverResource, h]
 
 theorem flat_server_label : FlatServerLabel := by
   intro p c l h

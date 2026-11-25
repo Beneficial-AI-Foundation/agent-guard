@@ -14,7 +14,8 @@ def rule (tool : String) (conds : List Cond) (a : Action) (e : Effect)
 
 def github : Policy where
   labelCount := 2
-  repos := [⟨"*/demo-public", 0⟩, ⟨"*/demo-private", 1⟩]
+  resources := [⟨"*/demo-public", 0⟩, ⟨"*/demo-private", 1⟩]
+  servers := [{ name := "github", resource := some (.keys ["owner", "repo"]) }]
   rules := [ rule "github.get_file_contents" [] .allow .read false false,
     rule "github.get_me" [] .allow .read false false,
     rule "github.list_branches" [] .allow .read false false,

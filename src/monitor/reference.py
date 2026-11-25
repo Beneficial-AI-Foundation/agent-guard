@@ -120,7 +120,7 @@ class Rule:
 @dataclass(frozen=True)
 class Policy:
     label_count: int
-    repos: tuple[tuple[str, int], ...]
+    resources: tuple[tuple[str, int], ...]
     rules: tuple[Rule, ...]
     servers: tuple[Server, ...] = ()
 
@@ -148,7 +148,9 @@ class Policy:
                     high_impact=r.get("impact", "high") == "high",
                 )
             )
-        repos = tuple((e["match"], labels.index(e["label"])) for e in d.get("repos") or [])
+        resources = tuple(
+            (e["match"], labels.index(e["label"])) for e in d.get("resources") or []
+        )
         servers = []
         for sv in d.get("servers") or []:
             res = sv.get("resource")
@@ -163,7 +165,7 @@ class Policy:
                 for k, v in (sv.get("capabilities") or {}).items()
             )
             servers.append(Server(name=sv["name"], resource=resource, caps=caps))
-        return cls(len(labels), repos, tuple(rules), tuple(servers))
+        return cls(len(labels), resources, tuple(rules), tuple(servers))
 
 
 def cond_holds(action: str, key: str, pats: tuple[str, ...], args: dict[str, Any]) -> bool:
@@ -212,33 +214,28 @@ def _as_str(v: Any) -> str | None:
     return _scalar(v)
 
 
-def repo_of(args: dict[str, Any]) -> str | None:
-    o, r = _as_str(args.get("owner")), _as_str(args.get("repo"))
-    if o is not None and r is not None:
-        return lower(f"{o}/{r}")
-    return None
-
-
 def resource_name(names: tuple[str, ...], args: dict[str, Any]) -> str | None:
     if not names:
         return None
     vals = [_as_str(args.get(k)) for k in names]
-    return None if any(v is None for v in vals) else lower("/".join(v for v in vals if v))
+    if any(v is None for v in vals):
+        return None
+    # Empty values are kept: "" and "x" join to "/x", as Lean's intercalate does.
+    return lower("/".join(v for v in vals if v is not None))
 
 
 def known_label(p: Policy, call: dict[str, Any]) -> int | None:
     args = call.get("arguments") or {}
     sv = server_of(p, call)
-    if sv is not None and sv.resource is not None:
-        kind, val = sv.resource
-        if kind == "flat":
-            return int(val)
-        name = resource_name(val, args)
-    else:
-        name = repo_of(args)
+    if sv is None or sv.resource is None:
+        return None
+    kind, val = sv.resource
+    if kind == "flat":
+        return int(val)
+    name = resource_name(val, args)
     if name is None:
         return None
-    for pat, label in p.repos:
+    for pat, label in p.resources:
         if glob(lower(pat), name):
             return label
     return None

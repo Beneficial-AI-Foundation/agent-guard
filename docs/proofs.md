@@ -6,7 +6,7 @@ Every verdict AgentGuard gives (allow, ask or deny) is computed by Lean code who
 
 All of them hold for **every** rule file, **every** sequence of tool calls, **every** starting session, and **every** person answering the `ask` prompts, even one who approves everything. So they hold however the agent is tricked into choosing its calls.
 
-The last six are **proved, but not yet reachable from a rule file**: nothing decodes the `servers` block yet, so every policy takes the default path that `resource_default_is_repo` describes, and no rule can name a capability. The schema and `docs/rules.md` land separately.
+The last six are about the `servers` block: how a connection names the thing a call touches, and which of its tools have each capability. See [rules.md](rules.md#servers-resources-and-capabilities).
 
 | Theorem | In plain words |
 |---|---|
@@ -20,7 +20,7 @@ The last six are **proved, but not yet reachable from a rule file**: nothing dec
 | `level_monotone` | The session level never goes down, so rewording data doesn't launder it. |
 | `no_untrusted_steering` | After outsider text has been read, no high-impact call is allowed without a person. |
 | `approval_cannot_leak` | A call shown to a person is already within the leak rules, so approving it can't leak. |
-| `resource_default_is_repo` | A rule file that declares no `resources` means exactly what it means today (`owner` and `repo`). |
+| `unlisted_server_names_nothing` | A server the policy doesn't list names no resource, so nothing is assumed about an undeclared connection. |
 | `flat_server_label` | A server declared `flat l` reads and writes at label `l`, whatever the call's arguments say. |
 | `unknown_resource_is_safe` | A resource the policy can't name is read as the highest label and written as the lowest, so it can't launder data. |
 | `capability_needs_declaration` | A rule selected by capability never reaches a tool whose connection didn't declare that capability. |

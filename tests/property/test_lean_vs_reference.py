@@ -89,17 +89,50 @@ STRINGS = [
 ]
 
 
+CAPABILITIES = [
+    "network_scan",
+    "send_message",
+    "automated_decision",
+    "write_data",
+    "read_data",
+    "operate_physical_system",
+]
+SERVER_PATS = ["github", "git*", "**", "mail", "x", "nope"]
+
+
+def rand_servers(r: random.Random, labels: list[str]) -> list[dict[str, Any]]:
+    out = []
+    for _ in range(r.randint(0, 3)):
+        sv: dict[str, Any] = {"name": r.choice(SERVER_PATS)}
+        pick = r.random()
+        if pick < 0.45:
+            sv["resource"] = {"keys": r.sample(["owner", "repo", "path"], r.randint(1, 2))}
+        elif pick < 0.7:
+            sv["resource"] = {"label": r.choice(labels)}
+        if r.random() < 0.8:
+            caps: dict[str, Any] = {}
+            for c in r.sample(CAPABILITIES, r.randint(1, 3)):
+                pats = r.sample(TOOL_PATS, r.randint(1, 2))
+                caps[c] = pats[0] if len(pats) == 1 and r.random() < 0.5 else pats
+            sv["capabilities"] = caps
+        out.append(sv)
+    return out
+
+
 def rand_policy(r: random.Random) -> dict[str, Any]:
     labels = LABELS[: r.randint(1, 3)]
     repos = [
         {"match": r.choice(REPO_PATS), "label": r.choice(labels)} for _ in range(r.randint(0, 4))
     ]
+    servers = rand_servers(r, labels)
     rules = []
     for _ in range(r.randint(0, 8)):
         rule: dict[str, Any] = {
             "tool": r.choice(TOOL_PATS),
             "action": r.choice(["allow", "ask", "deny"]),
         }
+        if r.random() < 0.35:
+            rule["capability"] = r.choice(CAPABILITIES)
         if r.random() < 0.6:
             when: dict[str, Any] = {}
             for k in r.sample(KEYS, r.randint(1, 2)):
@@ -114,7 +147,7 @@ def rand_policy(r: random.Random) -> dict[str, Any]:
             if r.random() < 0.7:
                 rule[field] = r.choice(opts)
         rules.append(rule)
-    return {"labels": labels, "repos": repos, "rules": rules}
+    return {"labels": labels, "resources": repos, "servers": servers, "rules": rules}
 
 
 def rand_value(r: random.Random, depth: int = 0) -> Any:
