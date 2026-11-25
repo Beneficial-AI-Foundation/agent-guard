@@ -25,7 +25,7 @@ def servers : List Server :=
     { name := "notes",   caps := [] } ]
 
 def permissive : Policy :=
-  { labelCount := 1, repos := [], servers, rules := frontierTemplate ++ [allowAll] }
+  { labelCount := 1, resources := [], servers, rules := frontierTemplate ++ [allowAll] }
 
 def call (server tool : String) (args : Args := []) : ToolCall := ⟨server, tool, args⟩
 
