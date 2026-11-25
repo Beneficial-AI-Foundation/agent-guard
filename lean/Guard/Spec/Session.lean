@@ -3,12 +3,15 @@ import Guard.Spec.Semantics
 /-!
 # Sessions and the decision
 
-A **session** remembers two things about what the agent has already seen:
+A **session** remembers what the agent has already seen, and whether it has been
+stopped:
 
 * `level`: the highest label of anything it has read (starts at `0`);
-* `tainted`: whether it has read text written by outsiders.
+* `tainted`: whether it has read text written by outsiders;
+* `stopped`: whether a person has stopped the session.
 
-Neither ever goes back down: rewording data doesn't launder it.
+None of the three ever goes back down: rewording data doesn't launder it, and a
+stopped session is not restarted by anything `step` does.
 
 ## Repositories
 
@@ -23,11 +26,16 @@ counts in the safe direction: **reading** it counts as the highest label,
 
 ## The decision (`step`), in order
 
-1. The rules say deny (or no rule applies)             → **deny**
-2. It writes somewhere below the session level         → **deny** (leak)
-3. The rules say ask                                   → **ask**
-4. The session is tainted and the call is high impact  → **ask**
-5. Otherwise                                           → **allow**
+1. A person has stopped the session                    → **deny** (kill switch)
+2. The rules say deny (or no rule applies)             → **deny**
+3. It writes somewhere below the session level         → **deny** (leak)
+4. The rules say ask                                   → **ask**
+5. The session is tainted and the call is high impact  → **ask**
+6. Otherwise                                           → **allow**
+
+`stopped` is set from outside the decision (a person at the console), never by
+`step` itself, and `absorb` carries it forward unchanged: a stopped session
+stays stopped.
 
 A call that runs (allowed, or asked and approved) then raises the session:
 `level := max level readLevel`, `tainted := tainted || untrusted`.
@@ -38,6 +46,8 @@ namespace Guard
 structure Session where
   level : Label := 0
   tainted : Bool := false
+  /-- A person has stopped the session. Nothing runs after that. -/
+  stopped : Bool := false
   deriving DecidableEq, Repr, Inhabited
 
 /-! ## Repository labels -/
@@ -103,7 +113,8 @@ def classify (p : Policy) (c : ToolCall) : Class :=
 
 /-- The session after a call has run. -/
 def Session.absorb (s : Session) (k : Class) : Session :=
-  { level := max s.level k.readLevel, tainted := s.tainted || k.untrusted }
+  { level := max s.level k.readLevel, tainted := s.tainted || k.untrusted,
+    stopped := s.stopped }
 
 /-! ## The decision -/
 
@@ -113,6 +124,7 @@ inductive Cause where
   | noRule     -- no rule applies
   | leak       -- it would write below the session level
   | untrusted  -- high impact after outsider text
+  | stopped    -- a person stopped the session
   | allowed
   deriving DecidableEq, Repr
 
@@ -126,7 +138,9 @@ structure Decision where
 
 def step (p : Policy) (s : Session) (c : ToolCall) : Decision :=
   let k := classify p c
-  if k.action = .deny then
+  if s.stopped then
+    { verdict := .deny, cause := .stopped, cls := k, next := s }
+  else if k.action = .deny then
     { verdict := .deny, cause := if k.rule.isSome then .rule else .noRule, cls := k, next := s }
   else if k.dests.any (· < s.level) then
     { verdict := .deny, cause := .leak, cls := k, next := s }

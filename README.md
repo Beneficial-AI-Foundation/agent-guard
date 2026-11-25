@@ -4,7 +4,7 @@
 
 However the agent is tricked (for example by prompt injection in a GitHub issue), the proved properties hold: a call matching a deny rule never runs; nothing read from a private repository is written to a public one; after reading outsider text, every high-impact action needs a person. [What exactly is proved](docs/proofs.md).
 
-> **Status: research prototype.** The Lean core (10 theorems, no `sorry`), the gateway and the GitHub profile are built, and the six stories pass against real GitHub, scripted and with a real agent ([docs/testing.md](docs/testing.md)). Why it's built this way: [docs/design.md](docs/design.md).
+> **Status: research prototype.** The Lean core (12 theorems, no `sorry`), the gateway and the GitHub profile are built, and the six stories pass against real GitHub, scripted and with a real agent ([docs/testing.md](docs/testing.md)). Why it's built this way: [docs/design.md](docs/design.md).
 
 ## Try it on a test organisation
 

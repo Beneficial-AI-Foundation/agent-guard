@@ -69,6 +69,15 @@ theorem step_ask_not_allow (h : (classify p c).action = .ask) : (step p s c).ver
 theorem runs_not_deny {v : Verdict} {b : Bool} (h : runs v b = true) : v ≠ .deny := by
   cases v <;> simp_all [runs]
 
+/-- A stopped session denies before it looks at anything else. -/
+theorem step_stopped (h : s.stopped = true) : (step p s c).verdict = .deny := by
+  simp [step, h]
+
+/-- So nothing runs, and the session is left exactly as it was. -/
+theorem stopped_not_executed (p : Policy) (s : Session) (c : ToolCall) (b : Bool)
+    (h : s.stopped = true) : runs (step p s c).verdict b = false := by
+  rw [step_stopped h]; rfl
+
 /-- After a call: the session never shrinks, and if the call ran it absorbed what was read. -/
 theorem after_facts (p : Policy) (s : Session) (c : ToolCall) (b : Bool) :
     let s' := if runs (step p s c).verdict b then (step p s c).next else s
@@ -150,6 +159,36 @@ theorem allow_needs_allow_rule : AllowNeedsAllowRule := by
   rw [hd] at hv
   rw [← classify_action]
   exact (step_allow hv).1
+
+/-! ### The kill switch -/
+
+theorem kill_switch : KillSwitch := by
+  intro p a s cs
+  induction cs generalizing s with
+  | nil => intro _ e he; simp [run] at he
+  | cons c cs ih =>
+    intro hs e he
+    have hx := stopped_not_executed p s c (a s c) hs
+    rw [run_cons, List.mem_cons] at he
+    rcases he with rfl | he
+    · exact hx
+    · rw [hx] at he
+      simp only [Bool.false_eq_true, ite_false] at he
+      exact ih s hs e he
+
+theorem stopped_sticky : StoppedSticky := by
+  intro p a s cs
+  induction cs generalizing s with
+  | nil => intro _ e he; simp [run] at he
+  | cons c cs ih =>
+    intro hs e he
+    have hx := stopped_not_executed p s c (a s c) hs
+    rw [run_cons, List.mem_cons] at he
+    rcases he with rfl | he
+    · exact ⟨hs, by simp only [hx, Bool.false_eq_true, ite_false]; exact hs⟩
+    · rw [hx] at he
+      simp only [Bool.false_eq_true, ite_false] at he
+      exact ih s hs e he
 
 theorem approval_cannot_leak : ApprovalCannotLeak := by
   intro p a s cs e he hv d hdst

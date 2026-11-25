@@ -78,6 +78,7 @@ def causeName : Cause → String
   | .noRule => "no_rule"
   | .leak => "leak"
   | .untrusted => "untrusted"
+  | .stopped => "stopped"
   | .allowed => "allowed"
 
 /-- The theorem that guarantees this verdict holds. -/
@@ -87,6 +88,7 @@ def theoremFor (d : Decision) : String :=
   | .deny, .noRule => "unmatched_denied"
   | .deny, .leak => "no_exfiltration"
   | .ask, .untrusted => "no_untrusted_steering"
+  | .deny, .stopped => "kill_switch"
   | .ask, _ => "ask_rule_needs_person"
   | _, _ => "allow_needs_allow_rule"
 

@@ -117,7 +117,7 @@ def test_connect_and_doctor(tmp_path: Path, profile: Path, env: dict[str, str]) 
 
     after = run("doctor", cwd=ws, env=env)
     assert "uses AgentGuard" in after.stdout and "directly" not in after.stdout
-    assert "10 theorems" in after.stdout and "31 rules accepted" in after.stdout
+    assert "12 theorems" in after.stdout and "31 rules accepted" in after.stdout
 
 
 def test_report(tmp_path: Path, env: dict[str, str]) -> None:

@@ -82,6 +82,20 @@ def NoUntrustedSteering : Prop :=
       e₁.executed = true → e₁.decision.cls.untrusted = true →
         e₂.decision.cls.highImpact = true → e₂.decision.verdict ≠ .allow)
 
+/-- **The kill switch.** Once a person has stopped the session, nothing runs:
+no call in the rest of the run is executed, whatever the rules say and whoever
+answers `ask`. -/
+def KillSwitch : Prop :=
+  ∀ p approve s cs, s.stopped = true →
+    ∀ e ∈ run p approve s cs, e.executed = false
+
+/-- **A stopped session stays stopped.** The companion to `KillSwitch`: `step`
+never clears the flag, so the property above cannot be escaped part-way through
+a run. -/
+def StoppedSticky : Prop :=
+  ∀ p approve s cs, s.stopped = true →
+    ∀ e ∈ run p approve s cs, e.before.stopped = true ∧ e.after.stopped = true
+
 /-- **A call sent to a person is already within the leak rules**, so approving it
 can't leak data. -/
 def ApprovalCannotLeak : Prop :=
