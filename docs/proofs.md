@@ -32,6 +32,10 @@ The last six are about the `servers` block: how a connection names the thing a c
 
 The exact statements are in [`lean/Guard/Spec/Safety.lean`](../lean/Guard/Spec/Safety.lean), and the proofs are in [`lean/Guard/Proofs/`](../lean/Guard/Proofs/).
 
+## Rule templates
+
+Some theorems are about a particular list of rules rather than every rule file. The **frontier-risk template** ([frontier-risk.md](frontier-risk.md)) covers 33 rules from the FLI AI Safety Index and AIR-Bench 2024. Placed at the top of a rule file, it is proved to keep deciding the calls it catches whatever rules follow it: deny rules always deny (`template_deny_never_runs`), and nothing it catches runs without a person (`template_needs_person`). The proofs are in [`lean/Guard/Rulesets/FrontierRisk.lean`](../lean/Guard/Rulesets/FrontierRisk.lean) and are checked by `check-axioms` like the rest of `Guard.*`.
+
 ## How it is organised
 
 ```
@@ -46,7 +50,8 @@ lean/Guard/
 ├── Proofs/
 │   ├── Glob.lean        Impl.glob agrees with Spec's Glob
 │   └── Safety.lean      proofs of every statement in Spec/Safety.lean
-└── Wire/                JSON in and out, rule-file validation (trusted, not proved)
+├── Wire/                JSON in and out, rule-file validation (trusted, not proved)
+└── Rulesets/            ready-made rule lists and what they guarantee (FrontierRisk)
 ```
 
 Two layers keep the proofs from being circular:

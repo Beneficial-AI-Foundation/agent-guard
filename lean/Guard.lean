@@ -4,6 +4,7 @@ import Guard.Proofs.Glob
 import Guard.Spec.Safety
 import Guard.Proofs.Safety
 import Guard.Wire.Validate
+import Guard.Rulesets.FrontierRisk
 
 /-!
 # Guard
@@ -15,6 +16,8 @@ The proved decision behind AgentGuard.
 * `Guard.Proofs` – the matcher agrees with the spec, and the safety theorems stated in
   `Guard.Spec.Safety` hold.
 * `Guard.Wire`   – JSON decoding and rule-file validation.
+* `Guard.Rulesets` – ready-made rule lists with proofs of what they guarantee
+  (`FrontierRisk`: the FLI AI Safety Index / AIR-Bench template).
 -/
 
 namespace Guard
