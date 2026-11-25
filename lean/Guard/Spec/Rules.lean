@@ -74,9 +74,37 @@ structure Cond where
   pats : List String
   deriving Repr
 
+/-- **What a tool does.** A closed vocabulary: a connection's template says
+which of its tools have each capability, and a rule can select on the
+capability instead of guessing tool names. The list is deliberately short, and
+the wire layer rejects any name outside it, so a typo is an error rather than a
+rule that silently never fires.
+
+The twelve come from the agent-action rules of the FLI AI Safety Index and
+AIR-Bench 2024 (see `docs/frontier-risk.md`). -/
+inductive Capability where
+  | networkScan            -- port and vulnerability scanning
+  | remoteAccess           -- logging in to a machine
+  | packetForge            -- raw packets, spoofed traffic
+  | malwareExec            -- running unsandboxed code
+  | serviceDisrupt         -- flooding, network reconfiguration
+  | auditTamper            -- editing logs or records of what happened
+  | guardConfigWrite       -- writing AgentGuard's own configuration
+  | sendMessage            -- anything an outsider receives
+  | automatedDecision      -- a decision about a person (qualify with `when`)
+  | operatePhysicalSystem  -- machinery, vehicles, grids, weapons, life support
+  | readData
+  | writeData
+  deriving DecidableEq, Repr
+
 structure Rule where
-  /-- Pattern for the tool name, e.g. `github.push_files` or `github.get_*`. -/
+  /-- Pattern for the tool name, e.g. `github.push_files` or `github.get_*`.
+  A rule that selects on `cap` alone leaves this `**`. -/
   tool : String
+  /-- If set, the rule applies only to calls whose server declared this
+  capability for the tool. `none` means the rule is selected by name alone, as
+  every rule is today. -/
+  cap : Option Capability := none
   /-- All conditions must hold for the rule to apply. -/
   conds : List Cond
   action : Action
@@ -108,11 +136,19 @@ inductive Resource where
   | flat (label : Label)
   deriving Repr
 
-/-- `server: "github", from: [owner, repo]`. First match wins. -/
-structure ServerResource where
+/-- `send_message: [add_issue_comment, "send_*"]`: the tools of one server that
+have this capability. Patterns match the **tool** name, not `server.tool`. -/
+structure CapTools where
+  cap : Capability
+  tools : List String
+  deriving Repr
+
+/-- One connection: how it names resources, and what its tools do. -/
+structure Server where
   /-- Pattern for the server's name in the profile, e.g. `github` or `mail-*`. -/
-  server : String
-  res : Resource
+  name : String
+  resource : Option Resource := none
+  caps : List CapTools := []
   deriving Repr
 
 structure Policy where
@@ -122,10 +158,10 @@ structure Policy where
   repos : List RepoLabel
   /-- First match wins; no match means deny. -/
   rules : List Rule
-  /-- How each server names the resource a call touches. First match wins.
-  Empty means every server is read as GitHub is (`owner` and `repo`), which is
-  what every rule file does today. -/
-  resources : List ServerResource := []
+  /-- The connections: how each names the resource a call touches, and which of
+  its tools have each capability. First match wins. A server that is not listed
+  names no resource and has no capabilities. -/
+  servers : List Server := []
   deriving Repr
 
 /-- The highest label. -/

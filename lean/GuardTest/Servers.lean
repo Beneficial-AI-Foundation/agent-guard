@@ -1,12 +1,13 @@
 import Guard
 
 /-!
-The `resources` slot, on the two-connection profile that motivates it: a GitHub
+The `servers` block, on the two-connection profile that motivates it: a GitHub
 server whose resource is `owner/repo`, and a mail server with no per-call
-resource at all.
+resource at all. Second half: a capability rule reaches only the tools a
+connection declared for it.
 -/
 
-namespace GuardTest.Resources
+namespace GuardTest.Servers
 open Guard
 
 def rd (tool : String) : Rule :=
@@ -25,10 +26,15 @@ def demoRules : List Rule :=
 /-- A rule file as they are written today: no `resources`. -/
 def today : Policy := { labelCount := 2, repos := demoRepos, rules := demoRules }
 
-/-- The same profile, with each server saying how it names a resource. -/
+/-- The same profile, with each server saying how it names a resource and what
+its tools do. -/
 def declared : Policy :=
   { labelCount := 2, repos := demoRepos, rules := demoRules,
-    resources := [⟨"github", .keys ["owner", "repo"]⟩, ⟨"mail", .flat 0⟩] }
+    servers := [
+      { name := "github", resource := some (.keys ["owner", "repo"]),
+        caps := [⟨.writeData, ["push_files"]⟩, ⟨.sendMessage, ["add_issue_comment"]⟩] },
+      { name := "mail", resource := some (.flat 0),
+        caps := [⟨.sendMessage, ["send_*"]⟩] }] }
 
 def readMail : ToolCall := ⟨"mail", "read_inbox", [("folder", .str "INBOX")]⟩
 
@@ -59,4 +65,35 @@ highest label and the next push to a public repo is denied as a leak. -/
 /-! Resource names are matched lowercased, as `owner/repo` is today. -/
 #guard knownLabel declared pushPublic == some 0
 
-end GuardTest.Resources
+/-! ## Capabilities
+
+The frontier-risk template's oversight rule, written against a capability
+instead of a tool-name shape, and pasted at the top as the template says. -/
+
+def askSends : Rule :=
+  { tool := "**", cap := some .sendMessage, conds := [], action := .ask,
+    effect := .write, untrusted := true, highImpact := true }
+
+def withOversight : Policy := { declared with rules := askSends :: demoRules }
+
+def comment : ToolCall :=
+  ⟨"github", "add_issue_comment", [("owner", .str "acme"), ("repo", .str "demo-public")]⟩
+def push : ToolCall :=
+  ⟨"github", "push_files", [("owner", .str "acme"), ("repo", .str "demo-public")]⟩
+
+/-! It reaches the tool GitHub declared as sending messages … -/
+#guard verdicts withOversight [comment] == [.ask]
+
+/-! … and not the one it didn't, even though both are on the same server. -/
+#guard verdicts withOversight [push] == [.allow]
+
+/-! A server the policy doesn't list has no capabilities, so the rule can't
+reach it. With no rule by name either, the call is denied, not asked. -/
+def strayCall : ToolCall := ⟨"scanner", "send_report", []⟩
+#guard capsOf withOversight strayCall == []
+#guard verdicts withOversight [strayCall] == [.deny]
+
+/-! `NameRulesUnchanged`: a rule with no capability is selected by name alone. -/
+#guard (demoRules.all fun r => r.cap.isNone) == true
+
+end GuardTest.Servers

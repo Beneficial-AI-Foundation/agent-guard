@@ -6,7 +6,8 @@ import Guard.Proofs.Glob
 # What a rule means
 
 * A rule **applies** to a call when its tool pattern matches the call's name
-  (`github.push_files`) and every one of its conditions holds.
+  (`github.push_files`), the call has the rule's `capability` if it names one,
+  and every one of its conditions holds.
 * The rules are tried in order. **The first rule that applies decides**; if none
   applies, the answer is **deny**.
 
@@ -93,9 +94,32 @@ def Cond.MustHold (cd : Cond) (args : Args) : Prop :=
 def Cond.Holds (a : Action) (cd : Cond) (args : Args) : Prop :=
   if a = .allow then cd.MustHold args else cd.MayHold args
 
+/-! ## Capabilities -/
+
+/-- The first `servers` entry whose pattern matches the call's server. -/
+def serverOf (p : Policy) (c : ToolCall) : Option Server :=
+  p.servers.find? (fun sv => decide (Glob sv.name c.server))
+
+/-- The capabilities that server declared for this tool. A server the policy
+does not list has none, so a capability rule never fires for it. -/
+def capsOf (p : Policy) (c : ToolCall) : List Capability :=
+  match serverOf p c with
+  | none => []
+  | some sv => sv.caps.filterMap fun ct =>
+      if ct.tools.any (fun g => decide (Glob g c.tool)) then some ct.cap else none
+
+/-- A rule with no `cap` is selected by name alone, as every rule is today. -/
+def Rule.CapHolds (p : Policy) (r : Rule) (c : ToolCall) : Prop :=
+  match r.cap with
+  | none => True
+  | some cp => cp ∈ capsOf p c
+
+instance (p : Policy) (r : Rule) (c : ToolCall) : Decidable (r.CapHolds p c) := by
+  unfold Rule.CapHolds; split <;> infer_instance
+
 /-- The rule applies to the call. -/
-def Rule.Applies (r : Rule) (c : ToolCall) : Prop :=
-  Glob r.tool c.name ∧ ∀ cd ∈ r.conds, cd.Holds r.action c.args
+def Rule.Applies (p : Policy) (r : Rule) (c : ToolCall) : Prop :=
+  Glob r.tool c.name ∧ r.CapHolds p c ∧ ∀ cd ∈ r.conds, cd.Holds r.action c.args
 
 /-! These instances let the definitions above run as they are. -/
 
@@ -111,22 +135,23 @@ instance (cd : Cond) (args : Args) : Decidable (cd.MustHold args) :=
 instance (a : Action) (cd : Cond) (args : Args) : Decidable (cd.Holds a args) :=
   inferInstanceAs (Decidable (if a = .allow then _ else _))
 
-instance (r : Rule) (c : ToolCall) : Decidable (r.Applies c) :=
+instance (p : Policy) (r : Rule) (c : ToolCall) : Decidable (r.Applies p c) :=
   inferInstanceAs (Decidable (_ ∧ _))
 
 /-! ## First match wins -/
 
 /-- The first rule (with its 0-based position) that applies, if any. -/
-def firstMatchFrom (c : ToolCall) : Nat → List Rule → Option (Nat × Rule)
+def firstMatchFrom (p : Policy) (c : ToolCall) : Nat → List Rule → Option (Nat × Rule)
   | _, [] => none
-  | i, r :: rs => if r.Applies c then some (i, r) else firstMatchFrom c (i + 1) rs
+  | i, r :: rs => if r.Applies p c then some (i, r) else firstMatchFrom p c (i + 1) rs
 
-def firstMatch (rules : List Rule) (c : ToolCall) : Option (Nat × Rule) :=
-  firstMatchFrom c 0 rules
+def firstMatch (p : Policy) (rules : List Rule) (c : ToolCall) : Option (Nat × Rule) :=
+  firstMatchFrom p c 0 rules
 
-/-- What the rules say about a call: the first applying rule's action, or deny. -/
-def action (rules : List Rule) (c : ToolCall) : Action :=
-  match firstMatch rules c with
+/-- What the rules say about a call: the first applying rule's action, or deny.
+The policy is there only to say what the call's capabilities are. -/
+def action (p : Policy) (rules : List Rule) (c : ToolCall) : Action :=
+  match firstMatch p rules c with
   | some (_, r) => r.action
   | none => .deny
 

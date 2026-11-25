@@ -10,7 +10,7 @@ open Guard
 
 def rule (tool : String) (conds : List Cond) (a : Action) (e : Effect)
     (untrusted highImpact : Bool) : Rule :=
-  Rule.mk tool conds a e untrusted highImpact
+  { tool, conds, action := a, effect := e, untrusted, highImpact }
 
 def github : Policy where
   labelCount := 2

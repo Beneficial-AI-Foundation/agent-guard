@@ -13,7 +13,7 @@ Neither ever goes back down: rewording data doesn't launder it.
 ## Resources
 
 Every call touches a **resource**, and the resource's label is what the leak
-rules are about. A policy's `resources` says how each server names one:
+rules are about. A policy's `servers` says how each one names a resource:
 
 * `keys [owner, repo]` — join those top-level arguments with `/`. The result is
   matched against the `repos` patterns, first match wins.
@@ -23,8 +23,8 @@ Names and patterns are compared **lowercased** (GitHub treats repository names
 case-insensitively, so `Demo-Private` must not escape a `*/demo-private`
 pattern).
 
-A policy that declares no `resources` reads every server as GitHub is read,
-`owner` and `repo` — what every rule file does today.
+A server the policy does not list, or that says nothing about resources, is
+read as GitHub is read, `owner` and `repo` — what every rule file does today.
 
 If the call names no resource, or no `repos` entry matches, the label is
 unknown and counts in the safe direction: **reading** it counts as the highest
@@ -77,9 +77,9 @@ def resourceName (names : List String) (args : Args) : Option String :=
   | [] => none
   | _ => (names.mapM (lookupStr args)).map fun vs => lower (String.intercalate "/" vs)
 
-/-- The first `resources` entry whose pattern matches the call's server. -/
+/-- How the call's server names a resource, if the policy lists it and it says. -/
 def serverResource (p : Policy) (c : ToolCall) : Option Resource :=
-  (p.resources.find? (fun e => decide (Glob e.server c.server))).map (·.res)
+  (serverOf p c).bind (·.resource)
 
 /-- The label of the first `repos` entry matching the repository name. -/
 def repoLabel (p : Policy) (name : String) : Option Label :=
@@ -115,7 +115,7 @@ structure Class where
   deriving Repr
 
 def classify (p : Policy) (c : ToolCall) : Class :=
-  match firstMatch p.rules c with
+  match firstMatch p p.rules c with
   | some (i, r) =>
     { rule := some (i, r)
       action := r.action

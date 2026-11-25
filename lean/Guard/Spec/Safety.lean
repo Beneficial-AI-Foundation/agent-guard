@@ -32,26 +32,26 @@ def ExecutedOnlyIfAllowed : Prop :=
 /-- **A call matching no rule is never executed.** -/
 def UnmatchedDenied : Prop :=
   ∀ p approve s cs, ∀ e ∈ run p approve s cs,
-    firstMatch p.rules e.call = none →
+    firstMatch p p.rules e.call = none →
       e.decision.verdict = .deny ∧ e.executed = false
 
 /-- **If the first matching rule says deny, the call never runs.** -/
 def DenyRuleAlwaysDenies : Prop :=
   ∀ p approve s cs, ∀ e ∈ run p approve s cs,
-    action p.rules e.call = .deny →
+    action p p.rules e.call = .deny →
       e.decision.verdict = .deny ∧ e.executed = false
 
 /-- **If the first matching rule says ask, the call never runs without a person.** -/
 def AskRuleNeedsPerson : Prop :=
   ∀ p approve s cs, ∀ e ∈ run p approve s cs,
-    action p.rules e.call = .ask →
+    action p p.rules e.call = .ask →
       e.decision.verdict ≠ .allow ∧
         (e.executed = true → approve e.before e.call = true)
 
 /-- **Only an allow rule can allow.** -/
 def AllowNeedsAllowRule : Prop :=
   ∀ p approve s cs, ∀ e ∈ run p approve s cs,
-    e.decision.verdict = .allow → action p.rules e.call = .allow
+    e.decision.verdict = .allow → action p p.rules e.call = .allow
 
 /-- **No exfiltration.** Nothing goes to a place below what was already read:
 every call that isn't denied (so every call that runs, and every call shown to a
@@ -87,10 +87,10 @@ def NoUntrustedSteering : Prop :=
 `NoExfiltration` is about the labels a call reads and writes; `resources` is
 what decides those labels. These three say the slot behaves. -/
 
-/-- **A policy that declares no resources behaves exactly as before.** The
-migration statement: every rule file written today keeps its meaning. -/
+/-- **A policy that lists no servers behaves exactly as before.** The migration
+statement: every rule file written today keeps its meaning. -/
 def ResourceDefaultIsRepo : Prop :=
-  ∀ p c, p.resources = [] →
+  ∀ p c, p.servers = [] →
     knownLabel p c = (repoOf c.args).bind (repoLabel p)
 
 /-- **A flat server has exactly its declared label**, whatever the call's
@@ -107,6 +107,32 @@ the policy says nothing about can never be used to launder data. -/
 def UnknownResourceIsSafe : Prop :=
   ∀ p c, knownLabel p c = none →
     readLabel p c = p.top ∧ writeLabel p c = 0
+
+/-! ## Capabilities
+
+A rule may select on a **capability** rather than a tool name. These say the
+selection is scoped: a capability rule reaches only the tools a connection
+declared for it, and a rule that names no capability behaves as it does today. -/
+
+/-- **A capability rule needs a declaration.** It never applies to a call whose
+server did not declare that capability for that tool — so pasting
+`capability: send_message, action: ask` at the top of a rule file cannot reach
+a server that never said it sends anything. -/
+def CapabilityNeedsDeclaration : Prop :=
+  ∀ (p : Policy) (r : Rule) (c : ToolCall) (cp : Capability),
+    r.cap = some cp → cp ∉ capsOf p c → ¬ r.Applies p c
+
+/-- **An unlisted server has no capabilities**, so no capability rule fires for
+it and its calls fall through to the rules selected by name — and, failing
+those, to deny. -/
+def UnlistedServerHasNoCaps : Prop :=
+  ∀ p c, serverOf p c = none → capsOf p c = []
+
+/-- **Rules selected by name are unchanged.** A rule with no `capability` applies
+exactly when its tool pattern and conditions say so, as every rule does today. -/
+def NameRulesUnchanged : Prop :=
+  ∀ (p : Policy) (r : Rule) (c : ToolCall), r.cap = none →
+    (r.Applies p c ↔ Glob r.tool c.name ∧ ∀ cd ∈ r.conds, cd.Holds r.action c.args)
 
 /-- **A call sent to a person is already within the leak rules**, so approving it
 can't leak data. -/

@@ -6,7 +6,7 @@ Every verdict AgentGuard gives (allow, ask or deny) is computed by Lean code who
 
 All of them hold for **every** rule file, **every** sequence of tool calls, **every** starting session, and **every** person answering the `ask` prompts, even one who approves everything. So they hold however the agent is tricked into choosing its calls.
 
-The three `resource*` theorems are **proved, but the slot is not yet reachable from a rule file**: nothing decodes `resources` yet, so every policy takes the default path that `resource_default_is_repo` describes. The schema and `docs/rules.md` land separately.
+The last six are **proved, but not yet reachable from a rule file**: nothing decodes the `servers` block yet, so every policy takes the default path that `resource_default_is_repo` describes, and no rule can name a capability. The schema and `docs/rules.md` land separately.
 
 | Theorem | In plain words |
 |---|---|
@@ -23,6 +23,9 @@ The three `resource*` theorems are **proved, but the slot is not yet reachable f
 | `resource_default_is_repo` | A rule file that declares no `resources` means exactly what it means today (`owner` and `repo`). |
 | `flat_server_label` | A server declared `flat l` reads and writes at label `l`, whatever the call's arguments say. |
 | `unknown_resource_is_safe` | A resource the policy can't name is read as the highest label and written as the lowest, so it can't launder data. |
+| `capability_needs_declaration` | A rule selected by capability never reaches a tool whose connection didn't declare that capability. |
+| `unlisted_server_has_no_caps` | A server the policy doesn't list has no capabilities, so no capability rule fires for it. |
+| `name_rules_unchanged` | A rule with no capability applies exactly on its tool pattern and conditions, as every rule does today. |
 
 The exact statements are in [`lean/Guard/Spec/Safety.lean`](../lean/Guard/Spec/Safety.lean), and the proofs are in [`lean/Guard/Proofs/`](../lean/Guard/Proofs/).
 
