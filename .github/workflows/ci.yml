@@ -38,6 +38,29 @@ jobs:
           path: lean/.lake/build/bin/guard-worker
           if-no-files-found: error
 
+  proofs-macos:
+    # AgentGuard supports macOS as well as Linux, so build the Lean core and
+    # check axioms on Apple silicon too. The Lean worker has no C FFI, so no
+    # extra system libraries are needed.
+    name: Lean proofs and axioms (macos-arm64)
+    runs-on: macos-14
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install elan
+        run: |
+          curl -sSfL https://raw.githubusercontent.com/leanprover/elan/master/elan-init.sh \
+            | sh -s -- -y --default-toolchain none
+          echo "$HOME/.elan/bin" >> "$GITHUB_PATH"
+      - uses: actions/cache@v4
+        with:
+          path: |
+            ~/.elan/toolchains
+            lean/.lake
+          key: lean-macos-${{ hashFiles('lean/lean-toolchain', 'lean/lake-manifest.json') }}-${{ hashFiles('lean/**/*.lean') }}
+          restore-keys: lean-macos-${{ hashFiles('lean/lean-toolchain', 'lean/lake-manifest.json') }}-
+      - name: Build, check axioms, run worker
+        run: scripts/check_proofs.sh
+
   python:
     name: Python lint, types, tests
     runs-on: ubuntu-latest
